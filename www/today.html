@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<!--
+  当日の履歴画面
+  ・その日の全打刻を表示
+  ・最新が上
+  ・誤操作時の削除・追加あり
+  ・高齢ドライバー向け（大文字・スクロール最小）
+-->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>今日の履歴｜ダンプ運行カウンター</title>
+
+  <style>
+    /* =============================
+       基本リセット
+    ============================= */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      height: 100vh;
+      width: 100vw;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* =============================
+       ヘッダー
+    ============================= */
+    header {
+      height: 8vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 3vh;
+      font-weight: bold;
+      border-bottom: 1px solid #333;
+    }
+
+    /* =============================
+       履歴リスト
+    ============================= */
+    main {
+      flex: 1;
+      padding: 2vh;
+      overflow-y: auto;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2vh;
+      border-bottom: 1px solid #333;
+      font-size: 2.6vh;
+    }
+
+    .left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8vh;
+    }
+
+    .count {
+      color: #ffd700;
+      font-weight: bold;
+    }
+
+    .diff {
+      font-size: 2.2vh;
+      color: #00ff88;
+    }
+
+    .delete {
+      background: #aa0000;
+      color: #fff;
+      border: none;
+      border-radius: 1vh;
+      padding: 1vh 2vh;
+      font-size: 2.2vh;
+    }
+
+    /* =============================
+       フッター
+    ============================= */
+    footer {
+      padding: 2vh;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5vh;
+    }
+
+    button {
+      width: 100%;
+      padding: 2.3vh;
+      font-size: 3vh;
+      font-weight: bold;
+      border-radius: 1.2vh;
+      border: none;
+    }
+
+    .add {
+      background: #555;
+      color: #fff;
+    }
+
+    .back {
+      background: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== ヘッダー ===== -->
+  <header>
+    今日の履歴
+  </header>
+
+  <!-- ===== メイン ===== -->
+  <main>
+
+    <!-- 最新履歴 -->
+    <div class="row">
+      <div class="left">
+        <div class="count">5回目　15:00</div>
+        <div class="diff">前回から 90 分</div>
+      </div>
+      <button class="delete">削除</button>
+    </div>
+
+    <div class="row">
+      <div class="left">
+        <div class="count">4回目　13:30</div>
+        <div class="diff">前回から 85 分</div>
+      </div>
+      <button class="delete">削除</button>
+    </div>
+
+    <div class="row">
+      <div class="left">
+        <div class="count">3回目　12:05</div>
+        <div class="diff">前回から 70 分</div>
+      </div>
+      <button class="delete">削除</button>
+    </div>
+
+    <div class="row">
+      <div class="left">
+        <div class="count">2回目　10:55</div>
+        <div class="diff">前回から 95 分</div>
+      </div>
+      <button class="delete">削除</button>
+    </div>
+
+    <div class="row">
+      <div class="left">
+        <div class="count">1回目　09:20</div>
+        <div class="diff">---</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ===== フッター ===== -->
+  <footer>
+    <button class="add">時刻を手動で追加</button>
+    index.html戻る</button>
+  </footer>
+
+</body>
+</html>
