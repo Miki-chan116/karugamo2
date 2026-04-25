@@ -1,5 +1,5 @@
 
-# Karugamo Counter / カルガモカウンター
+# Karugamo Counter2 / カルガモカウンター
 
 AtomLite と連携することを想定した、打刻・運行回数カウント用の Android アプリです。
 
