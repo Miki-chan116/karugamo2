@@ -1,0 +1,23 @@
+# Flutter
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+
+# PlatformIO
+.pio/
+
+# VSCode
+.vscode/
+
+# mac
+.DS_Store
