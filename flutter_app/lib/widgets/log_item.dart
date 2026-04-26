@@ -61,7 +61,8 @@ class LogItem extends StatelessWidget {
                   ),
                 ),
               ),
-              if (diff != null)
+              if (diff != null) ...[ 
+                const SizedBox(width: 4),
                 Text(
                   diff!,
                   style: const TextStyle(
@@ -69,6 +70,7 @@ class LogItem extends StatelessWidget {
                     fontSize: 16,
                   ),
                 ),
+              ],
             ],
           ),
         ],
