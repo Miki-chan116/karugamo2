@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<!--
+  日별履歴画面（history.html）
+  ・過去の日ごとの回数を一覧表示
+  ・自分のデータのみ確認
+  ・日付タップで詳細画面（today.html流用）に遷移する想定
+-->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>日別履歴｜ダンプ運行カウンター</title>
+
+  <style>
+    /* =============================
+       基本リセット
+    ============================= */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      height: 100vh;
+      width: 100vw;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* =============================
+       ヘッダー
+    ============================= */
+    header {
+      height: 8vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 3vh;
+      font-weight: bold;
+      border-bottom: 1px solid #333;
+    }
+
+    /* =============================
+       日別リスト
+    ============================= */
+    main {
+      flex: 1;
+      padding: 2vh;
+      overflow-y: auto;
+    }
+
+    .day {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2.5vh;
+      border-bottom: 1px solid #333;
+      font-size: 2.8vh;
+    }
+
+    .date {
+      font-weight: bold;
+    }
+
+    .count {
+      color: #ffd700;
+    }
+
+    /* =============================
+       フッター
+    ============================= */
+    footer {
+      padding: 2vh;
+    }
+
+    button {
+      width: 100%;
+      padding: 2.5vh;
+      font-size: 3vh;
+      font-weight: bold;
+      border-radius: 1.2vh;
+      border: none;
+      background: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== ヘッダー ===== -->
+  <header>
+    日別履歴
+  </header>
+
+  <!-- ===== メイン ===== -->
+  <main>
+
+    <!-- 最新日付 -->
+    <div class="day" onclick="location.href='today.html'"> 
+      <div class="date">2026/04/22</div>
+      <div class="count">6 回</div>
+    </div>
+
+    <div class="day" onclick="location.href='today.html'">
+      <div class="date">2026/04/21</div>
+      <div class="count">5 回</div>
+    </div>
+
+    <div class="day" onclick="location.href='today.html'">
+      <div class="date">2026/04/20</div>
+      <div class="count">4 回</div>
+    </div>
+
+  </main>
+
+  <!-- ===== フッター ===== -->
+  <footer>
+    <button onclick="location.href='index.html'">戻る</button>
+  </footer>
+
+</body>
+</html>

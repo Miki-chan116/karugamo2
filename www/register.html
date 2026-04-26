@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!--
+  初回登録画面
+  ・名前＋電話番号のみ
+  ・この画面は初回のみ表示
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>初回登録 - カルガモカウンター</title>
+
+<style>
+/* index.html と同じ変数・ベース */
+:root {
+  --green-main:#0b5a35;
+  --green-dark:#084526;
+  --accent-orange:#ff8c1a;
+  --accent-red:#e60000;
+  --white:#ffffff;
+  --divider-color: rgba(255,255,255,0.3);
+}
+
+body {
+  margin:0;
+  background:var(--green-main);
+  color:var(--white);
+  font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",
+               Roboto,"Noto Sans JP",sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== ヘッダー ===== */
+header {
+  height: 8vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 3vh;
+  font-weight: bold;
+  border-bottom: 1px solid #333;
+}
+
+/* ===== メイン ===== */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3vh;
+  padding: 4vh;
+}
+
+label {
+  font-size: 2.8vh;
+  margin-bottom: 1vh;
+}
+
+input {
+  width: 90%;
+  padding: 2vh;
+  font-size: 3vh;
+  border-radius: 1vh;
+  border: none;
+  background: var(--white);
+  color: #000;
+}
+
+.note {
+  font-size: 2.2vh;
+  color: #ccc;
+  margin-bottom: 2vh;
+}
+
+/* ===== フッター ===== */
+footer {
+  padding: 2vh;
+}
+
+button {
+  width: 100%;
+  padding: 2.5vh;
+  font-size: 3vh;
+  font-weight: bold;
+  border-radius: 1.2vh;
+  border: none;
+  background: #00aa55;
+  color: #fff;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== ヘッダー ===== -->
+<header>
+   カルガモカウンター 登録
+</header>
+
+<!-- ===== メイン ===== -->
+<main>
+  <div class="note">
+    ※ 入力は、利用開始時のみです。
+  </div>
+  
+  <div>
+    <label>名前</label>
+    <input type="text" placeholder="例: 🦆田　いぐお">
+  </div>
+
+  <div>
+    <label>電話番号</label>
+    <input type="tel" inputmode="numeric" placeholder="09012346789">
+  </div>
+
+  
+  </main>
+
+  <!-- ===== フッター ===== -->
+  <footer>
+    <button>スタート</button>
+  </footer>
+
+</body>
+</html>

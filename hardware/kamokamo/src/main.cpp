@@ -20,7 +20,11 @@ public:
   void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     deviceConnected = true;
     Serial.println("Smartphone connected");
+<<<<<<< HEAD
     M5.dis.drawpix(0, 0x00ffff);  // 水色
+=======
+    M5.dis.drawpix(0, 0x00ffff);
+>>>>>>> main
   }
 
   void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) {
@@ -29,7 +33,11 @@ public:
 
     NimBLEDevice::startAdvertising();
 
+<<<<<<< HEAD
     M5.dis.drawpix(0, 0x0000ff);  // 青
+=======
+    M5.dis.drawpix(0, 0x0000ff);
+>>>>>>> main
   }
 };
 
@@ -40,7 +48,10 @@ void setup() {
 
   Serial.println("Karugamo BLE Counter Start");
 
+<<<<<<< HEAD
   // 待機中は青
+=======
+>>>>>>> main
   M5.dis.drawpix(0, 0x0000ff);
 
   // BLE初期化
@@ -56,7 +67,19 @@ void setup() {
     NIMBLE_PROPERTY::NOTIFY
   );
 
+<<<<<<< HEAD
   NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+=======
+  pService->start();
+
+  // 👇ここが重要な修正ポイント
+  NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+
+  NimBLEAdvertisementData advData;
+  advData.setName(BLE_DEVICE_NAME);
+
+  pAdvertising->setAdvertisementData(advData);
+>>>>>>> main
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
 
@@ -70,7 +93,10 @@ void loop() {
 
   bool currentButtonState = M5.Btn.isPressed();
 
+<<<<<<< HEAD
   // 押された瞬間だけ反応
+=======
+>>>>>>> main
   if (currentButtonState == true && lastButtonState == false) {
     count++;
     unsigned long now = millis();
@@ -90,20 +116,30 @@ void loop() {
       pCharacteristic->notify();
       Serial.println("BLE notify sent");
 
+<<<<<<< HEAD
       // 接続中に送信成功したら緑
       M5.dis.drawpix(0, 0x00ff00);
       delay(200);
 
       // 接続中は水色に戻す
+=======
+      M5.dis.drawpix(0, 0x00ff00);
+      delay(200);
+>>>>>>> main
       M5.dis.drawpix(0, 0x00ffff);
     } else {
       Serial.println("No smartphone connected");
 
+<<<<<<< HEAD
       // 未接続なら黄色
       M5.dis.drawpix(0, 0xffff00);
       delay(200);
 
       // 待機青に戻す
+=======
+      M5.dis.drawpix(0, 0xffff00);
+      delay(200);
+>>>>>>> main
       M5.dis.drawpix(0, 0x0000ff);
     }
 
