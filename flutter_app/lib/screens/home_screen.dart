@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/log_item.dart';
+import '../services/gas_api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,16 +13,74 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> logs = [];
 
   void _addLog() {
-    final now = TimeOfDay.now();
+    final now = DateTime.now();
+
     final timeText =
         "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    int intervalMs = 0;
+
+    if (logs.isNotEmpty) {
+      final previousTime = logs.last["received_at"] as DateTime;
+      intervalMs = now.difference(previousTime).inMilliseconds;
+    }
 
     setState(() {
       logs.add({
         "time": timeText,
         "count": logs.length + 1,
+        "received_at": now,
+        "interval_ms": intervalMs,
+        "device_id": "manual-device",
+        "source": "manual",
       });
     });
+  }
+
+  Future<void> _sendLogs() async {
+    if (logs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('送信するデータがありません')),
+      );
+      return;
+    }
+
+    int successCount = 0;
+
+    for (final log in logs) {
+      final success = await GasApiService.sendLog(
+        deviceId: log["device_id"],
+        pressCount: log["count"],
+        intervalMs: log["interval_ms"],
+        source: log["source"],
+      );
+
+      if (success) {
+        successCount++;
+      }
+    }
+
+    if (!mounted) return;
+
+    if (successCount == logs.length) {
+      final sentCount = successCount;
+
+      setState(() {
+        logs.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$sentCount件送信しました')),
+      );
+    } else {
+      final failedCount = logs.length - successCount;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$successCount件送信、$failedCount件失敗しました'),
+        ),
+      );
+    }
   }
 
   @override
@@ -65,18 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   String? diff;
 
                   if (index > 0) {
-                    final prev = logs[index - 1];
-                    final prevParts = (prev["time"] as String).split(":");
-                    final currParts = (log["time"] as String).split(":");
-
-                    final prevMin =
-                        int.parse(prevParts[0]) * 60 +
-                        int.parse(prevParts[1]);
-                    final currMin =
-                        int.parse(currParts[0]) * 60 +
-                        int.parse(currParts[1]);
-
-                    diff = "${currMin - prevMin}分";
+                    final intervalMs = log["interval_ms"] as int;
+                    final diffMin = (intervalMs / 1000 / 60).round();
+                    diff = "$diffMin分";
                   }
 
                   return LogItem(
@@ -99,39 +149,39 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: SizedBox(
-                height: 56, // ← 打刻ボタンと同じ高さ
+                height: 56,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.black,            // 文字色は黒で読みやすく
+                    foregroundColor: Colors.black,
                     elevation: 0,
                   ),
                   onPressed: () {},
                   child: const Text(
                     "修正する",
                     style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
-                   ),
                   ),
                 ),
               ),
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: SizedBox(
-                height: 56, // ← 打刻ボタンと同じ高さ
+                height: 56,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF4A261), // ← 落ち着いたオレンジ
-                    foregroundColor: Colors.black,            // 文字色は黒で読みやすく
+                    backgroundColor: const Color(0xFFF4A261),
+                    foregroundColor: Colors.black,
                     elevation: 0,
                   ),
-                  onPressed: () {},
+                  onPressed: _sendLogs,
                   child: const Text(
                     "📤 データを送る",
                     style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),

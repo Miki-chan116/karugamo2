@@ -27,3 +27,4 @@ android/build/
 android/capacitor-cordova-android-plugins/build/
 www/build/
 .DS_Store
+gas/.clasp.json

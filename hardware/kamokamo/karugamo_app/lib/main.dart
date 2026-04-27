@@ -6,6 +6,8 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(home: BleTestPage());
@@ -13,6 +15,8 @@ class MyApp extends StatelessWidget {
 }
 
 class BleTestPage extends StatefulWidget {
+  const BleTestPage({super.key});
+
   @override
   State<BleTestPage> createState() => _BleTestPageState();
 }
