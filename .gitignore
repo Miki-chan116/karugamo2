@@ -1,7 +1,32 @@
+<<<<<<< HEAD
+# Flutter
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+
+# PlatformIO
+.pio/
+
+# VSCode
+.vscode/
+
+# mac
+=======
 ﻿node_modules/
 android/.gradle/
 android/app/build/
 android/build/
 android/capacitor-cordova-android-plugins/build/
 www/build/
+>>>>>>> main
 .DS_Store
