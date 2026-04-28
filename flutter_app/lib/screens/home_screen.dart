@@ -12,6 +12,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> logs = [];
 
+  String _formatDate(DateTime dt) {
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    final weekday = weekdays[dt.weekday - 1];
+    return '${dt.year}年${dt.month}月${dt.day}日($weekday)';
+  }
+
   void _addLog() {
     final now = DateTime.now();
 
@@ -85,11 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
+
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
 
       appBar: AppBar(
-        title: const Text('🦆 カウンター2'),
+        title: Text('🦆 ${_formatDate(today)}'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
@@ -143,7 +151,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
 
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.only(
+          left: 8,
+          right: 8,
+          top: 8,
+          bottom: 46, // 約1cm（38px）＋元の8px
+        ),
         color: Colors.white,
         child: Row(
           children: [
