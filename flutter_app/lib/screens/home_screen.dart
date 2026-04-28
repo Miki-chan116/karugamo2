@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/log_item.dart';
 import '../services/gas_api_service.dart';
+import '../services/ble_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,6 +12,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> logs = [];
+
+  final BleService _bleService = BleService();
+
+  bool _isBleConnected = false;
+  String _bleStatus = 'ATOM Lite未接続';
 
   void _addLog() {
     final now = DateTime.now();
@@ -35,6 +41,48 @@ class _HomeScreenState extends State<HomeScreen> {
         "source": "manual",
       });
     });
+  }
+
+  Future<void> _connectAtomLite() async {
+    setState(() {
+      _bleStatus = 'ATOM Lite接続準備中...';
+    });
+
+    try {
+      await _bleService.connect(
+        onLogReceived: (atomLog) {
+          final now = DateTime.now();
+
+          final timeText =
+              "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+          setState(() {
+            logs.add({
+              "time": timeText,
+              "count": atomLog.pressCount,
+              "received_at": now,
+              "interval_ms": atomLog.intervalMs,
+              "device_id": atomLog.deviceId,
+              "source": "atom",
+            });
+          });
+        },
+        onStatusChanged: (message) {
+          setState(() {
+            _bleStatus = message;
+
+            if (message.contains('接続完了')) {
+              _isBleConnected = true;
+            }
+          });
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _bleStatus = 'ATOM Lite接続エラー: $e';
+        _isBleConnected = false;
+      });
+    }
   }
 
   Future<void> _sendLogs() async {
@@ -84,16 +132,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void dispose() {
+    _bleService.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
-
       appBar: AppBar(
         title: const Text('🦆 カウンター2'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -113,6 +165,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: _addLog,
                 child: const Text("➕ 打刻"),
               ),
+            ),
+
+            const SizedBox(height: 12),
+
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      _isBleConnected ? Colors.grey.shade300 : Colors.white,
+                  foregroundColor: Colors.black,
+                  textStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: _isBleConnected ? null : _connectAtomLite,
+                child: Text(
+                  _isBleConnected ? "ATOM Lite接続済み" : "ATOM Lite接続",
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              _bleStatus,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
             ),
 
             const SizedBox(height: 20),
@@ -141,7 +226,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(8),
         color: Colors.white,
