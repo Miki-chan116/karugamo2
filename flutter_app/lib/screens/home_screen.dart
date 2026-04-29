@@ -22,11 +22,27 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> logs = [];
 
+  bool is12h = false;
+
   String _formatDate(DateTime dt) {
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     final weekday = weekdays[dt.weekday - 1];
     return '${dt.year}年${dt.month}月${dt.day}日($weekday)';
   }
+
+  String _formatTime(DateTime now) {
+    if (is12h) {
+      int hour = now.hour % 12;
+      if (hour == 0) hour = 12;
+
+      final ampm = now.hour < 12 ? 'AM' : 'PM';
+
+      return "$ampm ${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    }
+
+    return "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+  }
+
   late final BleService _bleService;
   late bool _isBleConnected;
   String _bleStatus = 'ATOM Lite未接続';
@@ -167,11 +183,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
+
       appBar: AppBar(
-        title: Text('🦆 ${_formatDate(today)}'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '🦆 ${_formatDate(today)}',
+                textAlign: TextAlign.left,
+              ),
+            ),
+            OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  is12h = !is12h;
+                });
+              },
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFFE0E0E0),
+                side: const BorderSide(color: Colors.grey),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+              ),
+              child: Text(
+                is12h ? "24H" : "12H",
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -189,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 onPressed: _addLog,
-                child: const Text("➕ 打刻"),
+                child: const Text("➕ 打刻する"),
               ),
             ),
 
@@ -226,9 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     final diffMin = (intervalMs / 1000 / 60).round();
                     diff = "$diffMin分";
                   }
-
                   return LogItem(
-                    time: log["time"],
+                    time: _formatTime(log["received_at"] as DateTime),
                     count: log["count"],
                     latest: log == logs.last,
                     diff: diff,
@@ -280,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   onPressed: _sendLogs,
                   child: const Text(
-                    "📤 データを送る",
+                    "📤 送信する",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
