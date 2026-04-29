@@ -170,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   onPressed: () {},
                   child: const Text(
-                    "修正する",
+                    "✍️修正する",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
