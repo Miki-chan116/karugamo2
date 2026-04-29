@@ -11,15 +11,22 @@ from pathlib import Path
 def find_base_dir() -> Path:
     candidates = []
 
+    # PyInstallerでアプリ化された場合
     if getattr(sys, "frozen", False):
-        exe_dir = Path(sys.executable).resolve().parent
-        candidates.append(exe_dir)
-        candidates.append(exe_dir.parent)
+        exe_path = Path(sys.executable).resolve()
 
+        # .app の中から起動された場合、親をたどって候補に入れる
+        for parent in exe_path.parents:
+            candidates.append(parent)
+
+    # 通常のPython実行の場合
     script_dir = Path(__file__).resolve().parent
     candidates.append(script_dir)
-    candidates.append(script_dir.parent)
 
+    for parent in script_dir.parents:
+        candidates.append(parent)
+
+    # 候補の中から karugamo2 のルートを探す
     for candidate in candidates:
         if (
             (candidate / "tools" / "deploy_atom.py").exists()
@@ -28,8 +35,8 @@ def find_base_dir() -> Path:
             return candidate
 
     raise RuntimeError(
-        "karugamo2 フォルダが見つかりません。"
-        "KarugamoAtomDeploy.exe は karugamo2 フォルダ内、または dist フォルダ内で実行してください。"
+        "karugamo2 フォルダが見つかりません。\n"
+        "KarugamoAtomDeploy.app は karugamo2 フォルダ内の dist フォルダに置いて実行してください。"
     )
 
 
@@ -318,7 +325,7 @@ class AtomDeployApp:
         try:
             # exeかどうかで切り替え
             if getattr(sys, "frozen", False):
-                python_cmd = "python"
+                python_cmd = sys.executable
             else:
                 python_cmd = sys.executable
 
@@ -383,12 +390,13 @@ class AtomDeployApp:
                 )
 
         except Exception as e:
-            self.root.after(0, lambda: self.append_log(f"\nERROR: {e}\n"))
-            self.root.after(0, lambda: messagebox.showerror("エラー", str(e)))
+            error_message = str(e)
+
+            self.root.after(0, lambda: self.append_log(f"\nERROR: {error_message}\n"))
+            self.root.after(0, lambda: messagebox.showerror("エラー", error_message))
 
         finally:
             self.root.after(0, lambda: self.set_running(False))
-
 
 def main():
     root = tk.Tk()
