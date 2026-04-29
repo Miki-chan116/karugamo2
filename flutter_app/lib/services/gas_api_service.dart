@@ -11,6 +11,8 @@ class GasApiService {
     required int pressCount,
     required int intervalMs,
     String source = 'manual',
+    required String userName,
+    required String phoneNumber,
   }) async {
     try {
       final body = jsonEncode({
@@ -18,6 +20,8 @@ class GasApiService {
         'press_count': pressCount,
         'interval_ms': intervalMs,
         'source': source,
+        'user_name': userName,
+        'phone_number': phoneNumber,
       });
 
       http.Response response = await http.post(
