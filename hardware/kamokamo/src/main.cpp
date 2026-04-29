@@ -62,12 +62,17 @@ void setup() {
   NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
 
   NimBLEAdvertisementData advData;
-  advData.setName(BLE_DEVICE_NAME);
+  advData.setFlags(0x06); // LE General Discoverable Mode + BR/EDR Not Supported
+  advData.addServiceUUID(SERVICE_UUID);
+
+  NimBLEAdvertisementData scanResponseData;
+  scanResponseData.setName(BLE_DEVICE_NAME);
 
   pAdvertising->setAdvertisementData(advData);
-  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponseData(scanResponseData);
   pAdvertising->start();
 
+  Serial.println("BLE advertising config: flags + service uuid + scan response name");
   Serial.println("BLE advertising started");
   Serial.print("Device name: ");
   Serial.println(BLE_DEVICE_NAME);

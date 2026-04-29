@@ -1,9 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/log_item.dart';
 import '../services/gas_api_service.dart';
+import '../services/ble_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final BleService bleService;
+  final bool isBleConnected;
+
+  const HomeScreen({
+    super.key,
+    required this.bleService,
+    required this.isBleConnected,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -19,6 +28,37 @@ class _HomeScreenState extends State<HomeScreen> {
     final weekday = weekdays[dt.weekday - 1];
     return '${dt.year}年${dt.month}月${dt.day}日($weekday)';
   }
+  late final BleService _bleService;
+  late bool _isBleConnected;
+  String _bleStatus = 'ATOM Lite未接続';
+  StreamSubscription<AtomLog>? _atomLogSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _bleService = widget.bleService;
+    _isBleConnected = widget.isBleConnected;
+    _bleStatus = _isBleConnected ? 'ATOM Lite接続中' : 'ATOM Lite未接続';
+
+    _atomLogSubscription = _bleService.atomLogStream.listen((atomLog) {
+      final now = DateTime.now();
+
+      final timeText =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+      setState(() {
+        logs.add({
+          "time": timeText,
+          "count": atomLog.pressCount,
+          "received_at": now,
+          "interval_ms": atomLog.intervalMs,
+          "device_id": atomLog.deviceId,
+          "source": "atom",
+        });
+      });
+    });
+  }  
 
   String _formatTime(DateTime now) {
     if (is12h) {
@@ -102,12 +142,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void dispose() {
+    _atomLogSubscription?.cancel();
+    _bleService.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
-
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -145,7 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -164,6 +209,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 onPressed: _addLog,
                 child: const Text("➕ 打刻する"),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _isBleConnected ? Colors.white : Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _bleStatus,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
 
@@ -193,7 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
       bottomNavigationBar: Container(
         padding: const EdgeInsets.only(
           left: 8,
