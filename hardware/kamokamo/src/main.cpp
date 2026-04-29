@@ -1,5 +1,6 @@
 #include <M5Atom.h>
 #include <NimBLEDevice.h>
+#include <Preferences.h>
 
 int count = 0;
 bool lastButtonState = false;
@@ -14,6 +15,13 @@ const char* BLE_DEVICE_NAME = "KarugamoCounter";
 // UUID
 #define SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+// device_id保存用
+Preferences prefs;
+String deviceId = "atom-unset";
+
+// シリアル入力用
+String serialBuffer = "";
 
 class ServerCallbacks : public NimBLEServerCallbacks {
 public:
@@ -33,12 +41,93 @@ public:
   }
 };
 
+void printHelp() {
+  Serial.println("Available commands:");
+  Serial.println("  GET_ID");
+  Serial.println("  SET_ID atom-001");
+  Serial.println("  RESET_ID");
+}
+
+void handleSerialCommand(String command) {
+  command.trim();
+
+  if (command.length() == 0) {
+    return;
+  }
+
+  Serial.print("command: ");
+  Serial.println(command);
+
+  if (command == "HELP") {
+    printHelp();
+    return;
+  }
+
+  if (command == "GET_ID") {
+    Serial.print("Current device_id: ");
+    Serial.println(deviceId);
+    return;
+  }
+
+  if (command == "RESET_ID") {
+    deviceId = "atom-unset";
+    prefs.putString("device_id", deviceId);
+
+    Serial.print("OK device_id reset: ");
+    Serial.println(deviceId);
+    return;
+  }
+
+  if (command.startsWith("SET_ID ")) {
+    String newDeviceId = command.substring(7);
+    newDeviceId.trim();
+
+    if (newDeviceId.length() == 0) {
+      Serial.println("ERROR device_id is empty");
+      return;
+    }
+
+    deviceId = newDeviceId;
+    prefs.putString("device_id", deviceId);
+
+    Serial.print("OK device_id=");
+    Serial.println(deviceId);
+    return;
+  }
+
+  Serial.println("ERROR unknown command");
+  printHelp();
+}
+
+void checkSerialCommand() {
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+
+    if (c == '\n' || c == '\r') {
+      if (serialBuffer.length() > 0) {
+        handleSerialCommand(serialBuffer);
+        serialBuffer = "";
+      }
+    } else {
+      serialBuffer += c;
+    }
+  }
+}
+
 void setup() {
   M5.begin(true, false, true);
   Serial.begin(115200);
   delay(1000);
 
   Serial.println("Karugamo BLE Counter Start");
+
+  // device_id読み込み
+  prefs.begin("karugamo", false);
+  deviceId = prefs.getString("device_id", "atom-unset");
+
+  Serial.print("Current device_id: ");
+  Serial.println(deviceId);
+  printHelp();
 
   // 待機中は青
   M5.dis.drawpix(0, 0x0000ff);
@@ -81,6 +170,9 @@ void setup() {
 void loop() {
   M5.update();
 
+  // PCからの設定コマンドを確認
+  checkSerialCommand();
+
   bool currentButtonState = M5.Btn.isPressed();
 
   // 押された瞬間だけ反応
@@ -90,7 +182,7 @@ void loop() {
     unsigned long interval = (count == 1) ? 0 : (now - lastPressTime);
 
     String payload = "{";
-    payload += "\"device_id\":\"atom-001\",";
+    payload += "\"device_id\":\"" + deviceId + "\",";
     payload += "\"press_count\":" + String(count) + ",";
     payload += "\"interval_ms\":" + String(interval);
     payload += "}";
