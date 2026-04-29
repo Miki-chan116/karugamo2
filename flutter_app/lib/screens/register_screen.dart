@@ -22,7 +22,7 @@ class RegisterScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             const Text(
-              '※ 入力は、利用開始時のみです。',
+              '※ 入力は、はじめて利用する時だけです。',
               style: TextStyle(color: Colors.white70),
             ),
 
@@ -65,7 +65,7 @@ class RegisterScreen extends StatelessWidget {
             TextField(
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
-                hintText: '09012346789',
+                hintText: '09012345678',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -79,26 +79,31 @@ class RegisterScreen extends StatelessWidget {
       ),
 
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 8,
+          bottom: 92, // 約2cm（76px）＋元の8px
+        ),
         child: SizedBox(
           height: 56,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00aa55),
+              backgroundColor: const Color.fromARGB(255, 237, 92, 3),
               foregroundColor: Colors.white,
             ),
             onPressed: () {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                builder: (context) {
+                  builder: (context) {
                   return const HomeScreen();
-                },
+                  },
                 ),
-            );
+              );
             },
             child: const Text(
-              'スタート',
+              '👆 利用を始める',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
