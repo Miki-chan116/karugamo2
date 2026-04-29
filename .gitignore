@@ -52,3 +52,11 @@ hardware/kamokamo/karugamo_app/linux/flutter/generated_plugins.cmake
 hardware/kamokamo/karugamo_app/macos/Flutter/GeneratedPluginRegistrant.swift
 hardware/kamokamo/karugamo_app/windows/flutter/generated_plugin_registrant.*
 hardware/kamokamo/karugamo_app/windows/flutter/generated_plugins.cmake
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Local deploy GUI config
+tools/deploy_atom_gui_config.json
