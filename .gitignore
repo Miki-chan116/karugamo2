@@ -28,3 +28,27 @@ android/capacitor-cordova-android-plugins/build/
 www/build/
 .DS_Store
 gas/.clasp.json
+
+# Flutter generated / local build files
+flutter_app/.dart_tool/
+flutter_app/build/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+
+# Flutter generated desktop plugin files
+flutter_app/linux/flutter/generated_plugin_registrant.*
+flutter_app/linux/flutter/generated_plugins.cmake
+flutter_app/macos/Flutter/GeneratedPluginRegistrant.swift
+flutter_app/windows/flutter/generated_plugin_registrant.*
+flutter_app/windows/flutter/generated_plugins.cmake
+
+# Hardware Flutter app generated files
+hardware/kamokamo/karugamo_app/.dart_tool/
+hardware/kamokamo/karugamo_app/build/
+hardware/kamokamo/karugamo_app/.flutter-plugins
+hardware/kamokamo/karugamo_app/.flutter-plugins-dependencies
+hardware/kamokamo/karugamo_app/linux/flutter/generated_plugin_registrant.*
+hardware/kamokamo/karugamo_app/linux/flutter/generated_plugins.cmake
+hardware/kamokamo/karugamo_app/macos/Flutter/GeneratedPluginRegistrant.swift
+hardware/kamokamo/karugamo_app/windows/flutter/generated_plugin_registrant.*
+hardware/kamokamo/karugamo_app/windows/flutter/generated_plugins.cmake
