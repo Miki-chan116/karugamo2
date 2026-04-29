@@ -1,10 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/log_item.dart';
 import '../services/gas_api_service.dart';
 import '../services/ble_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final BleService bleService;
+  final bool isBleConnected;
+
+  const HomeScreen({
+    super.key,
+    required this.bleService,
+    required this.isBleConnected,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -13,10 +21,37 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> logs = [];
 
-  final BleService _bleService = BleService();
-
-  bool _isBleConnected = false;
+  late final BleService _bleService;
+  late bool _isBleConnected;
   String _bleStatus = 'ATOM Lite未接続';
+  StreamSubscription<AtomLog>? _atomLogSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _bleService = widget.bleService;
+    _isBleConnected = widget.isBleConnected;
+    _bleStatus = _isBleConnected ? 'ATOM Lite接続中' : 'ATOM Lite未接続';
+
+    _atomLogSubscription = _bleService.atomLogStream.listen((atomLog) {
+      final now = DateTime.now();
+
+      final timeText =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+      setState(() {
+        logs.add({
+          "time": timeText,
+          "count": atomLog.pressCount,
+          "received_at": now,
+          "interval_ms": atomLog.intervalMs,
+          "device_id": atomLog.deviceId,
+          "source": "atom",
+        });
+      });
+    });
+  }  
 
   void _addLog() {
     final now = DateTime.now();
@@ -43,47 +78,47 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _connectAtomLite() async {
-    setState(() {
-      _bleStatus = 'ATOM Lite接続準備中...';
-    });
+  // Future<void> _connectAtomLite() async {
+  //   setState(() {
+  //     _bleStatus = 'ATOM Lite接続準備中...';
+  //   });
 
-    try {
-      await _bleService.connect(
-        onLogReceived: (atomLog) {
-          final now = DateTime.now();
+  //   try {
+  //     await _bleService.connect(
+  //       onLogReceived: (atomLog) {
+  //         final now = DateTime.now();
 
-          final timeText =
-              "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+  //         final timeText =
+  //             "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-          setState(() {
-            logs.add({
-              "time": timeText,
-              "count": atomLog.pressCount,
-              "received_at": now,
-              "interval_ms": atomLog.intervalMs,
-              "device_id": atomLog.deviceId,
-              "source": "atom",
-            });
-          });
-        },
-        onStatusChanged: (message) {
-          setState(() {
-            _bleStatus = message;
+  //         setState(() {
+  //           logs.add({
+  //             "time": timeText,
+  //             "count": atomLog.pressCount,
+  //             "received_at": now,
+  //             "interval_ms": atomLog.intervalMs,
+  //             "device_id": atomLog.deviceId,
+  //             "source": "atom",
+  //           });
+  //         });
+  //       },
+  //       onStatusChanged: (message) {
+  //         setState(() {
+  //           _bleStatus = message;
 
-            if (message.contains('接続完了')) {
-              _isBleConnected = true;
-            }
-          });
-        },
-      );
-    } catch (e) {
-      setState(() {
-        _bleStatus = 'ATOM Lite接続エラー: $e';
-        _isBleConnected = false;
-      });
-    }
-  }
+  //           if (message.contains('接続完了')) {
+  //             _isBleConnected = true;
+  //           }
+  //         });
+  //       },
+  //     );
+  //   } catch (e) {
+  //     setState(() {
+  //       _bleStatus = 'ATOM Lite接続エラー: $e';
+  //       _isBleConnected = false;
+  //     });
+  //   }
+  // }
 
   Future<void> _sendLogs() async {
     if (logs.isEmpty) {
@@ -133,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _atomLogSubscription?.cancel();
     _bleService.dispose();
     super.dispose();
   }
@@ -169,22 +205,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 12),
 
-            SizedBox(
+            Container(
               width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _isBleConnected ? Colors.grey.shade300 : Colors.white,
-                  foregroundColor: Colors.black,
-                  textStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onPressed: _isBleConnected ? null : _connectAtomLite,
-                child: Text(
-                  _isBleConnected ? "ATOM Lite接続済み" : "ATOM Lite接続",
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _isBleConnected ? Colors.white : Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _bleStatus,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),

@@ -41,6 +41,13 @@ class BleService {
   StreamSubscription<List<ScanResult>>? _scanSubscription;
   StreamSubscription<List<int>>? _notifySubscription;
 
+  final StreamController<AtomLog> _atomLogController =
+      StreamController<AtomLog>.broadcast();
+
+  Stream<AtomLog> get atomLogStream => _atomLogController.stream;
+
+  bool isConnected = false;
+
   Future<void> requestPermissions() async {
     await [
       Permission.bluetoothScan,
@@ -49,8 +56,7 @@ class BleService {
     ].request();
   }
 
-  Future<void> connect({
-    required void Function(AtomLog log) onLogReceived,
+  Future<bool> connect({
     required void Function(String message) onStatusChanged,
   }) async {
     await requestPermissions();
@@ -91,7 +97,6 @@ class BleService {
     });
 
     await FlutterBluePlus.stopScan();
-
     await FlutterBluePlus.startScan();
 
     await Future.delayed(const Duration(seconds: 10));
@@ -102,7 +107,8 @@ class BleService {
 
     if (foundDevice == null) {
       onStatusChanged('KarugamoCounterが見つかりませんでした');
-      return;
+      isConnected = false;
+      return false;
     }
 
     _device = foundDevice;
@@ -114,6 +120,8 @@ class BleService {
       autoConnect: false,
     );
 
+    isConnected = true;
+
     onStatusChanged('接続しました。サービスを確認中...');
 
     final services = await _device!.discoverServices();
@@ -121,11 +129,13 @@ class BleService {
     for (final service in services) {
       debugPrint('BLE service: ${service.uuid}');
 
-      if (service.uuid == serviceUuid) {
+      if (service.uuid.toString().toLowerCase() ==
+          serviceUuid.toString().toLowerCase()) {
         for (final characteristic in service.characteristics) {
           debugPrint('BLE characteristic: ${characteristic.uuid}');
 
-          if (characteristic.uuid == characteristicUuid) {
+          if (characteristic.uuid.toString().toLowerCase() ==
+              characteristicUuid.toString().toLowerCase()) {
             _notifyCharacteristic = characteristic;
             break;
           }
@@ -135,10 +145,13 @@ class BleService {
 
     if (_notifyCharacteristic == null) {
       onStatusChanged('Notify用Characteristicが見つかりませんでした');
-      return;
+      isConnected = false;
+      return false;
     }
 
     await _notifyCharacteristic!.setNotifyValue(true);
+
+    await _notifySubscription?.cancel();
 
     _notifySubscription =
         _notifyCharacteristic!.onValueReceived.listen((value) {
@@ -149,7 +162,7 @@ class BleService {
       try {
         final jsonMap = jsonDecode(text) as Map<String, dynamic>;
         final log = AtomLog.fromJson(jsonMap);
-        onLogReceived(log);
+        _atomLogController.add(log);
         onStatusChanged('ATOM Liteから受信しました');
       } catch (_) {
         onStatusChanged('受信データの解析に失敗しました: $text');
@@ -157,6 +170,7 @@ class BleService {
     });
 
     onStatusChanged('ATOM Lite接続完了。ボタン押下待ちです');
+    return true;
   }
 
   Future<void> disconnect() async {
@@ -170,11 +184,13 @@ class BleService {
 
     await _device?.disconnect();
     _device = null;
+    isConnected = false;
   }
 
   void dispose() {
     _scanSubscription?.cancel();
     _notifySubscription?.cancel();
     _device?.disconnect();
+    _atomLogController.close();
   }
 }
