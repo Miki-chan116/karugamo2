@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/log_item.dart';
 import '../services/gas_api_service.dart';
 import '../services/ble_service.dart';
+import 'edit_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final BleService bleService;
@@ -305,9 +306,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     foregroundColor: Colors.black,
                     elevation: 0,
                   ),
-                  onPressed: () {},
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditScreen(
+                          logs: logs,
+                          is12h: is12h,
+                        ),
+                      ),
+                    );
+
+                    if (result != null) {
+                      setState(() {
+                        logs = List<Map<String, dynamic>>.from(result);
+                      });
+                    }
+                  },
                   child: const Text(
-                    "✍️修正する",
+                    "✏ 編集する",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
