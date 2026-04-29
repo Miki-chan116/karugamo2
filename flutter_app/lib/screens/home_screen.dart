@@ -12,17 +12,30 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> logs = [];
 
+  bool is12h = false; // ★ 追加（12時間表示フラグ）
+
   String _formatDate(DateTime dt) {
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     final weekday = weekdays[dt.weekday - 1];
     return '${dt.year}年${dt.month}月${dt.day}日($weekday)';
   }
 
+  String _formatTime(DateTime now) {
+    if (is12h) {
+      int hour = now.hour % 12;
+      if (hour == 0) hour = 12;
+      final ampm = now.hour < 12 ? 'AM' : 'PM';
+
+      return "$ampm ${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    } else {
+      return "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    }
+  }
+
   void _addLog() {
     final now = DateTime.now();
 
-    final timeText =
-        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    final timeText = _formatTime(now); // ★ 変更
 
     int intervalMs = 0;
 
@@ -33,7 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       logs.add({
-        "time": timeText,
         "count": logs.length + 1,
         "received_at": now,
         "interval_ms": intervalMs,
@@ -46,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _sendLogs() async {
     if (logs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('送信するデータがありません')),
+        const SnackBar(content: Text('送るデータがありません')),
       );
       return;
     }
@@ -76,14 +88,14 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$sentCount件送信しました')),
+        SnackBar(content: Text('$sentCount件、送りました')),
       );
     } else {
       final failedCount = logs.length - successCount;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$successCount件送信、$failedCount件失敗しました'),
+          content: Text('$successCount件、送りました。$failedCount件、失敗しました。'),
         ),
       );
     }
@@ -97,9 +109,41 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: const Color(0xFF0b5a35),
 
       appBar: AppBar(
-        title: Text('🦆 ${_formatDate(today)}'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+
+        // ★ タイトルをRowに変更（左寄せ＋右ボタン）
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '🦆 ${_formatDate(today)}',
+                textAlign: TextAlign.left,
+              ),
+            ),
+
+            // ★ 12Hボタン
+            OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  is12h = !is12h;
+                });
+              },
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFFE0E0E0), // 薄グレー
+                side: const BorderSide(color: Colors.grey), // 濃グレー枠
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+              child: Text(
+                is12h ? "24H" : "12H",
+                style: TextStyle(
+                  fontSize: 12, // 日付より小さく
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
 
       body: Padding(
@@ -119,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 onPressed: _addLog,
-                child: const Text("➕ 打刻"),
+                child: const Text("➕ 打刻する"),
               ),
             ),
 
@@ -138,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
 
                   return LogItem(
-                    time: log["time"],
+                    time: _formatTime(log["received_at"]),
                     count: log["count"],
                     latest: log == logs.last,
                     diff: diff,
@@ -155,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
           left: 8,
           right: 8,
           top: 8,
-          bottom: 46, // 約1cm（38px）＋元の8px
+          bottom: 46,
         ),
         color: Colors.white,
         child: Row(
@@ -191,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   onPressed: _sendLogs,
                   child: const Text(
-                    "📤 データを送る",
+                    "📤 送信する",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
