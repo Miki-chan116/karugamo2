@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/gas_api_service.dart';
+import 'package:flutter/services.dart';
 
 class EditScreen extends StatefulWidget {
   final List<Map<String, dynamic>> logs;
@@ -19,13 +20,22 @@ class _EditScreenState extends State<EditScreen> {
   late List<Map<String, dynamic>> logs;
   late bool is12h;
 
-  final TextEditingController _timeController = TextEditingController();
+// 時刻入力用のコントローラー
+  final TextEditingController _hourController = TextEditingController();
+  final TextEditingController _minuteController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     logs = List.from(widget.logs); // コピー
     is12h = widget.is12h;
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
   }
 
   String _formatDate(DateTime dt) {
@@ -47,27 +57,32 @@ class _EditScreenState extends State<EditScreen> {
 
   // ✅ 時刻追加（先頭に追加＝最新が上）
   void _addManualTime() {
-    final text = _timeController.text;
+    final hour = _hourController.text.trim();
+    final minute = _minuteController.text.trim();
 
-    if (!RegExp(r'^\d{1,2}:\d{2}$').hasMatch(text)) {
+    if (!RegExp(r'^\d{1,2}$').hasMatch(hour) ||
+        !RegExp(r'^\d{2}$').hasMatch(minute) ||
+        int.parse(hour) > 23 ||
+        int.parse(minute) > 59) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('時刻は 10:30 の形式で入力してください')),
+        const SnackBar(content: Text('時刻を正しく入力してください（例: 10 : 30）')),
       );
       return;
     }
 
-    final now = DateTime.now();
+    final text = '${hour.padLeft(2, '0')}:${minute.padLeft(2, '0')}';
 
     setState(() {
       logs.insert(0, {
         "time": text,
         "count": logs.length + 1,
-        "received_at": now,
+        "received_at": DateTime.now().toIso8601String(),  // ← 変更
         "interval_ms": 0,
         "device_id": "manual-edit",
         "source": "manual",
       });
-      _timeController.clear();
+      _hourController.clear();    // ← 変更
+      _minuteController.clear();  // ← 追加
     });
   }
 
@@ -137,16 +152,19 @@ void _delete(int index) async {
             Expanded(
               child: Text('🦆 ${_formatDate(today)}'),
             ),
-            OutlinedButton(
-              onPressed: () {
-                setState(() {
-                  is12h = !is12h;
-                });
-              },
-              style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFFE0E0E0),
+            Visibility(
+              visible: false,
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                   is12h = !is12h;
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE0E0E0),
+                ),
+                child: Text(is12h ? "24H" : "12H"),
               ),
-              child: Text(is12h ? "24H" : "12H"),
             ),
           ],
         ),
@@ -177,16 +195,46 @@ void _delete(int index) async {
 
                 const SizedBox(width: 12),
 
-                // 入力欄
-                Expanded(
+                // 入力欄（時 ： 分）
+                SizedBox(
+                  width: 48,
                   child: TextField(
-                    controller: _timeController,
+                    controller: _hourController,
                     keyboardType: TextInputType.number,
+                    maxLength: 2,
+                    textAlign: TextAlign.center,
                     decoration: const InputDecoration(
-                      hintText: "10:30",
+                      hintText: '10',
+                      counterText: '',
                       filled: true,
                       fillColor: Colors.white,
                     ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(':', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+
+                SizedBox(
+                  width: 48,
+                  child: TextField(
+                    controller: _minuteController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 2,
+                    textAlign: TextAlign.center,
+                    decoration: const InputDecoration(
+                      hintText: '30',
+                      counterText: '',
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (value) {
+                      if (value.length == 2) FocusScope.of(context).unfocus();
+                    },
                   ),
                 ),
               ],
