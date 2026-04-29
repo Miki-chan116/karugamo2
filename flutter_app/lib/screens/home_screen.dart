@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/log_item.dart';
 import '../services/gas_api_service.dart';
 import '../services/ble_service.dart';
@@ -31,10 +32,25 @@ class _HomeScreenState extends State<HomeScreen> {
   String _bleStatus = 'ATOM Lite未接続';
   StreamSubscription<AtomLog>? _atomLogSubscription;
 
+  String _userName = '';
+  String _phoneNumber = '';
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) return;
+
+    setState(() {
+      _userName = prefs.getString('user_name') ?? '';
+      _phoneNumber = prefs.getString('phone_number') ?? '';
+    });
+  }
+
   @override
   void initState() {
     super.initState();
 
+    _loadUserInfo();
     _bleService = widget.bleService;
     _isBleConnected = widget.isBleConnected;
     _bleStatus = _isBleConnected ? 'ATOM Lite接続中' : 'ATOM Lite未接続';
@@ -45,12 +61,19 @@ class _HomeScreenState extends State<HomeScreen> {
       final timeText =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
+      int intervalMs = 0;
+
+      if (logs.isNotEmpty) {
+        final previousTime = logs.last["received_at"] as DateTime;
+        intervalMs = now.difference(previousTime).inMilliseconds;
+      }
+
       setState(() {
         logs.add({
           "time": timeText,
-          "count": atomLog.pressCount,
+          "count": logs.length + 1,
           "received_at": now,
-          "interval_ms": atomLog.intervalMs,
+          "interval_ms": intervalMs,
           "device_id": atomLog.deviceId,
           "source": "atom",
         });
@@ -99,6 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
         pressCount: log["count"],
         intervalMs: log["interval_ms"],
         source: log["source"],
+        userName: _userName,
+        phoneNumber: _phoneNumber,
       );
 
       if (success) {

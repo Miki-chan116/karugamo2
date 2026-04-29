@@ -40,6 +40,8 @@ function doPost(e) {
     const row = [
       id,
       data.device_id || '',
+      data.user_name || '',
+      data.phone_number || '',
       data.press_count || '',
       data.interval_ms || '',
       intervalMin,

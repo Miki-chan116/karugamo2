@@ -24,29 +24,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSavedUserName();
+    _loadSavedUserInfo();
   }
 
-  Future<void> _loadSavedUserName() async {
+  Future<void> _loadSavedUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
+
     final savedName = prefs.getString('user_name') ?? '';
+    final savedPhone = prefs.getString('phone_number') ?? '';
 
     if (!mounted) return;
 
     setState(() {
       _nameController.text = savedName;
+      _phoneController.text = savedPhone;
     });
   }
 
-  Future<void> _saveUserName() async {
+  Future<void> _saveUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.setString('user_name', _nameController.text);
+    await prefs.setString('phone_number', _phoneController.text);
   }
 
   Future<void> _startWithAtomLite() async {
     if (_isConnecting) return;
 
-    await _saveUserName();
+    await _saveUserInfo();
 
     setState(() {
       _isConnecting = true;
