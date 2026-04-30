@@ -3,6 +3,7 @@ import json
 import platform
 import subprocess
 import threading
+import shutil
 import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
@@ -56,6 +57,41 @@ def default_port() -> str:
         return "/dev/cu.usbserial"
 
     return "/dev/ttyUSB0"
+
+
+def find_python_command() -> str:
+    """
+    deploy_atom.py を実行するための Python コマンドを取得する。
+
+    通常のPython実行時:
+      今動いている Python を使う。
+
+    PyInstallerでexe/.app化されている時:
+      sys.executable は GUI本体を指すため、そのまま使うと
+      KarugamoAtomDeploy.exe / .app 自身を再起動してしまう。
+      そのため外部の Python を探して使う。
+    """
+    if not getattr(sys, "frozen", False):
+        return sys.executable
+
+    if sys.platform == "win32":
+        candidates = ["py", "python", "python3"]
+    else:
+        candidates = ["python3", "python"]
+
+    for name in candidates:
+        path = shutil.which(name)
+        if path:
+            return path
+
+    raise RuntimeError(
+        "Python が見つかりません。\n"
+        "AtomLite配布処理を実行するには Python と esptool / pyserial が必要です。\n\n"
+        "Windowsの場合:\n"
+        "  py -m pip install esptool pyserial\n\n"
+        "macOSの場合:\n"
+        "  python3 -m pip install esptool pyserial"
+    )
 
 
 BG_COLOR = "#0b5a35"
@@ -323,11 +359,12 @@ class AtomDeployApp:
         self.root.after(0, lambda: self.set_running(True))
 
         try:
-            # exeかどうかで切り替え
-            if getattr(sys, "frozen", False):
-                python_cmd = sys.executable
-            else:
-                python_cmd = sys.executable
+            python_cmd = find_python_command()
+
+            self.root.after(
+                0,
+                lambda: self.append_log(f"Python command: {python_cmd}\n"),
+            )
 
             command = [
                 python_cmd,
@@ -397,6 +434,7 @@ class AtomDeployApp:
 
         finally:
             self.root.after(0, lambda: self.set_running(False))
+
 
 def main():
     root = tk.Tk()
