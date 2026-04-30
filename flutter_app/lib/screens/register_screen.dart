@@ -223,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             const SizedBox(height: 20),
             const Text(
-              '※ 名前・電話番号・🦆カウンター番号を入力します。',
+              '※ 名前・電話番号・🦆カウンター番号\n   を入力します。',
               style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 30),
