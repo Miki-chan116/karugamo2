@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -13,16 +14,33 @@ class GasApiService {
     String source = 'manual',
     required String userName,
     required String phoneNumber,
+    dynamic receivedAt,
   }) async {
     try {
-      final body = jsonEncode({
+      String? receivedAtText;
+
+      if (receivedAt is DateTime) {
+        receivedAtText = receivedAt.toIso8601String();
+      } else if (receivedAt is String && receivedAt.trim().isNotEmpty) {
+        receivedAtText = receivedAt.trim();
+      }
+
+      final Map<String, dynamic> requestBody = {
         'device_id': deviceId,
         'press_count': pressCount,
         'interval_ms': intervalMs,
         'source': source,
         'user_name': userName,
         'phone_number': phoneNumber,
-      });
+      };
+
+      if (receivedAtText != null) {
+        requestBody['received_at'] = receivedAtText;
+      }
+
+      final body = jsonEncode(requestBody);
+
+      debugPrint('GAS request body: $body');
 
       http.Response response = await http.post(
         Uri.parse(gasUrl),

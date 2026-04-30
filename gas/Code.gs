@@ -1,4 +1,5 @@
 const SHEET_NAME = 'logs';
+const TIMEZONE = 'Asia/Tokyo';
 
 function doPost(e) {
   try {
@@ -16,17 +17,17 @@ function doPost(e) {
 
     const data = JSON.parse(e.postData.contents);
 
-    const now = new Date();
+    const receivedDate = parseReceivedAt(data.received_at);
 
     const receivedAt = Utilities.formatDate(
-      now,
-      'Asia/Tokyo',
+      receivedDate,
+      TIMEZONE,
       'yyyy/MM/dd HH:mm:ss'
     );
 
     const workDate = Utilities.formatDate(
-      now,
-      'Asia/Tokyo',
+      receivedDate,
+      TIMEZONE,
       'yyyy/MM/dd'
     );
 
@@ -56,7 +57,8 @@ function doPost(e) {
     return jsonResponse({
       status: 'success',
       saved_count: 1,
-      received_at: receivedAt
+      received_at: receivedAt,
+      work_date: workDate
     });
 
   } catch (error) {
@@ -72,6 +74,20 @@ function doGet(e) {
     status: 'ok',
     message: 'Karugamo GAS API is running'
   });
+}
+
+function parseReceivedAt(value) {
+  if (!value) {
+    return new Date();
+  }
+
+  const date = new Date(value);
+
+  if (isNaN(date.getTime())) {
+    return new Date();
+  }
+
+  return date;
 }
 
 function jsonResponse(obj) {

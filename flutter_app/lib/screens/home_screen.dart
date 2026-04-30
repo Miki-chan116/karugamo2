@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,13 +24,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const String _pendingLogsKey = 'pending_logs';
+
   List<Map<String, dynamic>> logs = [];
 
   bool is12h = false;
 
   late final BleService _bleService;
   late bool _isBleConnected;
-  String _bleStatus = 'ATOM Lite未接続';
+  String _bleStatus = '🦆カウンター 未接続';
   StreamSubscription<AtomLog>? _atomLogSubscription;
 
   String _userName = '';
@@ -39,11 +42,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    _loadUserInfo();
-
     _bleService = widget.bleService;
     _isBleConnected = widget.isBleConnected;
-    _bleStatus = _isBleConnected ? 'ATOM Lite接続中' : 'ATOM Lite未接続';
+    _bleStatus = _isBleConnected ? '🦆カウンター 接続中' : '🦆カウンター 未接続';
+
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await _loadUserInfo();
+    await _loadPendingLogs();
 
     _atomLogSubscription = _bleService.atomLogStream.listen((atomLog) {
       final now = DateTime.now();
@@ -51,27 +59,26 @@ class _HomeScreenState extends State<HomeScreen> {
       int intervalMs = 0;
 
       if (logs.isNotEmpty) {
-        final previousTime = logs.last["received_at"];
+        final previousTime = _latestReceivedAt();
 
-        if (previousTime is DateTime) {
+        if (previousTime != null) {
           intervalMs = now.difference(previousTime).inMilliseconds;
-        } else if (previousTime is String) {
-          final parsed = DateTime.tryParse(previousTime);
-          if (parsed != null) {
-            intervalMs = now.difference(parsed).inMilliseconds;
-          }
         }
       }
 
       setState(() {
         logs.add({
-          "count": logs.length + 1,
+          "count": _nextCount(),
           "received_at": now,
           "interval_ms": intervalMs,
           "device_id": atomLog.deviceId,
           "source": "atom",
         });
+
+        _sortLogs();
       });
+
+      unawaited(_savePendingLogs());
     });
   }
 
@@ -86,6 +93,152 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _loadPendingLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final text = prefs.getString(_pendingLogsKey);
+
+    if (text == null || text.isEmpty) {
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(text);
+
+      if (decoded is! List) {
+        return;
+      }
+
+      final loadedLogs = decoded.map<Map<String, dynamic>>((item) {
+        final map = Map<String, dynamic>.from(item as Map);
+
+        final receivedAt = _toDateTime(map["received_at"]);
+        if (receivedAt != null) {
+          map["received_at"] = receivedAt;
+        } else {
+          map["received_at"] = DateTime.now();
+        }
+
+        map["count"] = int.tryParse(map["count"].toString()) ?? 0;
+        map["interval_ms"] = int.tryParse(map["interval_ms"].toString()) ?? 0;
+        map["device_id"] = map["device_id"]?.toString() ?? '';
+        map["source"] = map["source"]?.toString() ?? 'manual';
+
+        // 12H/24H切替を効かせるため、固定表示用のtimeは使わない
+        map.remove("time");
+
+        return map;
+      }).toList();
+
+      loadedLogs.sort((a, b) {
+        final timeCompare = _timeSortValue(b).compareTo(_timeSortValue(a));
+        if (timeCompare != 0) return timeCompare;
+
+        final aCount = a["count"] as int? ?? 0;
+        final bCount = b["count"] as int? ?? 0;
+
+        return bCount.compareTo(aCount);
+      });
+
+      if (!mounted) return;
+
+      setState(() {
+        logs = loadedLogs;
+      });
+    } catch (e) {
+      debugPrint('未送信ログの読み込みに失敗しました: $e');
+    }
+  }
+
+  Future<void> _savePendingLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final serializableLogs = logs.map((log) {
+      final receivedAt = _toDateTime(log["received_at"]);
+
+      return {
+        "count": log["count"],
+        "received_at": receivedAt?.toIso8601String() ??
+            log["received_at"]?.toString() ??
+            DateTime.now().toIso8601String(),
+        "interval_ms": log["interval_ms"] ?? 0,
+        "device_id": log["device_id"] ?? '',
+        "source": log["source"] ?? 'manual',
+      };
+    }).toList();
+
+    await prefs.setString(_pendingLogsKey, jsonEncode(serializableLogs));
+  }
+
+  Future<void> _clearPendingLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingLogsKey);
+  }
+
+  DateTime? _toDateTime(dynamic value) {
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
+  }
+
+  DateTime? _latestReceivedAt() {
+    DateTime? latest;
+
+    for (final log in logs) {
+      final receivedAt = _toDateTime(log["received_at"]);
+      if (receivedAt == null) continue;
+
+      if (latest == null || receivedAt.isAfter(latest)) {
+        latest = receivedAt;
+      }
+    }
+
+    return latest;
+  }
+
+  int _nextCount() {
+    if (logs.isEmpty) {
+      return 1;
+    }
+
+    int maxCount = 0;
+
+    for (final log in logs) {
+      final count = int.tryParse(log["count"].toString()) ?? 0;
+      if (count > maxCount) {
+        maxCount = count;
+      }
+    }
+
+    return maxCount + 1;
+  }
+
+  int _timeSortValue(Map<String, dynamic> log) {
+    final receivedAt = _toDateTime(log["received_at"]);
+    if (receivedAt != null) {
+      return receivedAt.hour * 60 + receivedAt.minute;
+    }
+
+    return 0;
+  }
+
+  void _sortLogs() {
+    logs.sort((a, b) {
+      final timeCompare = _timeSortValue(b).compareTo(_timeSortValue(a));
+      if (timeCompare != 0) return timeCompare;
+
+      final aCount = a["count"] as int? ?? 0;
+      final bCount = b["count"] as int? ?? 0;
+
+      return bCount.compareTo(aCount);
+    });
+  }
+
   String _formatDate(DateTime dt) {
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     final weekday = weekdays[dt.weekday - 1];
@@ -93,15 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _formatTime(dynamic value) {
-    DateTime dt;
-
-    if (value is DateTime) {
-      dt = value;
-    } else if (value is String) {
-      dt = DateTime.tryParse(value) ?? DateTime.now();
-    } else {
-      dt = DateTime.now();
-    }
+    final dt = _toDateTime(value) ?? DateTime.now();
 
     if (is12h) {
       int hour = dt.hour % 12;
@@ -121,27 +266,26 @@ class _HomeScreenState extends State<HomeScreen> {
     int intervalMs = 0;
 
     if (logs.isNotEmpty) {
-      final previousTime = logs.last["received_at"];
+      final previousTime = _latestReceivedAt();
 
-      if (previousTime is DateTime) {
+      if (previousTime != null) {
         intervalMs = now.difference(previousTime).inMilliseconds;
-      } else if (previousTime is String) {
-        final parsed = DateTime.tryParse(previousTime);
-        if (parsed != null) {
-          intervalMs = now.difference(parsed).inMilliseconds;
-        }
       }
     }
 
     setState(() {
       logs.add({
-        "count": logs.length + 1,
+        "count": _nextCount(),
         "received_at": now,
         "interval_ms": intervalMs,
         "device_id": "manual-device",
         "source": "manual",
       });
+
+      _sortLogs();
     });
+
+    unawaited(_savePendingLogs());
   }
 
   Future<void> _sendLogs() async {
@@ -152,16 +296,19 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
+
     int successCount = 0;
 
     for (final log in logs) {
       final success = await GasApiService.sendLog(
-        deviceId: log["device_id"],
-        pressCount: log["count"],
-        intervalMs: log["interval_ms"],
-        source: log["source"],
+        deviceId: log["device_id"]?.toString() ?? '',
+        pressCount: int.tryParse(log["count"].toString()) ?? 0,
+        intervalMs: int.tryParse(log["interval_ms"].toString()) ?? 0,
+        source: log["source"]?.toString() ?? 'manual',
         userName: _userName,
         phoneNumber: _phoneNumber,
+        receivedAt: log["received_at"],
       );
 
       if (success) {
@@ -178,15 +325,21 @@ class _HomeScreenState extends State<HomeScreen> {
         logs.clear();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      await _clearPendingLogs();
+
+      messenger.showSnackBar(
         SnackBar(content: Text('$sentCount件、送りました')),
       );
     } else {
       final failedCount = logs.length - successCount;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      await _savePendingLogs();
+
+      messenger.showSnackBar(
         SnackBar(
-          content: Text('$successCount件、送りました。$failedCount件、失敗しました。'),
+          content: Text(
+            '$successCount件、送りました。$failedCount件、失敗しました。未送信データは保持しています。',
+          ),
         ),
       );
     }
@@ -282,20 +435,21 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             Expanded(
               child: ListView(
-                children: logs.reversed.map((log) {
+                children: logs.map((log) {
                   final index = logs.indexOf(log);
                   String? diff;
 
                   if (index > 0) {
-                    final intervalMs = log["interval_ms"] as int;
+                    final intervalMs =
+                        int.tryParse(log["interval_ms"].toString()) ?? 0;
                     final diffMin = (intervalMs / 1000 / 60).round();
                     diff = "$diffMin分";
                   }
 
                   return LogItem(
-                    time: log["time"] ?? _formatTime(log["received_at"]),
-                    count: log["count"],
-                    latest: log == logs.last,
+                    time: _formatTime(log["received_at"]),
+                    count: int.tryParse(log["count"].toString()) ?? 0,
+                    latest: index == 0,
                     diff: diff,
                   );
                 }).toList(),
@@ -336,7 +490,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (result != null) {
                       setState(() {
                         logs = List<Map<String, dynamic>>.from(result);
+
+                        for (final log in logs) {
+                          final receivedAt = _toDateTime(log["received_at"]);
+                          if (receivedAt != null) {
+                            log["received_at"] = receivedAt;
+                          }
+
+                          log.remove("time");
+                        }
+
+                        _sortLogs();
                       });
+
+                      await _savePendingLogs();
                     }
                   },
                   child: const Text(

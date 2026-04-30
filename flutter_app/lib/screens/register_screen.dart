@@ -20,7 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _isConnecting = false;
   bool _movedToHome = false;
-  String _status = 'ATOM Lite未接続';
+  String _status = '🦆カウンター未接続';
 
   @override
   void initState() {
@@ -57,14 +57,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (atomNumber.isEmpty) {
       setState(() {
-        _status = 'AtomLite番号を入力してください';
+        _status = '🦆カウンター番号を入力してください';
       });
       return false;
     }
 
     if (!RegExp(r'^[0-9]+$').hasMatch(atomNumber)) {
       setState(() {
-        _status = 'AtomLite番号は数字だけで入力してください';
+        _status = '🦆カウンター番号は数字だけで入力してください';
       });
       return false;
     }
@@ -83,7 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() {
       _isConnecting = true;
-      _status = 'ATOM Lite $atomNumber へ接続中...';
+      _status = '🦆カウンター $atomNumber へ接続中...';
     });
 
     bool connected = false;
@@ -102,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       connected = false;
       if (mounted) {
         setState(() {
-          _status = 'ATOM Lite接続エラー: $e';
+          _status = '🦆カウンター接続エラー: $e';
         });
       }
     }
@@ -126,9 +126,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text('ATOM Lite未接続'),
+          title: const Text('🦆カウンター未接続'),
           content: const Text(
-            'AtomLiteに接続できません。スマホ画面から直接打刻しますか？',
+            '🦆カウンターに接続できません。スマホ画面から直接打刻しますか？',
           ),
           actions: [
             TextButton(
@@ -223,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             const SizedBox(height: 20),
             const Text(
-              '※ 名前・電話番号・AtomLiteの番号を入力します。',
+              '※ 名前・電話番号・🦆カウンター番号を入力します。',
               style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 30),
@@ -247,7 +247,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             const SizedBox(height: 20),
 
-            _label('AtomLite番号'),
+            _label('🦆カウンター番号'),
             const SizedBox(height: 8),
             TextField(
               controller: _atomNumberController,
@@ -259,7 +259,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '※  AtomLiteの番号を入力します。',
+                '※  🦆カウンターの番号を入力します。',
                 style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
             ),
