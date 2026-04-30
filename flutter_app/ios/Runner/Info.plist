@@ -84,12 +84,14 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<!-- 🔽 ここが今回の重要ポイント -->
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>カルガモカウンターのボタンから送信されるBluetooth信号を受信するために使用します。</string>
 
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>カルガモカウンターのボタンとBluetooth接続するために使用します。</string>
+
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Bluetoothデバイス検出のために位置情報を使用します。</string>
 
 </dict>
 </plist>

@@ -47,17 +47,41 @@ class BleService {
   bool isConnected = false;
 
   Future<bool> requestPermissions() async {
-    final scanStatus = await Permission.bluetoothScan.request();
-    final connectStatus = await Permission.bluetoothConnect.request();
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final locationStatus = await Permission.locationWhenInUse.request();
 
-    debugPrint('BLE permission bluetoothScan: $scanStatus');
-    debugPrint('BLE permission bluetoothConnect: $connectStatus');
+      debugPrint('BLE permission iOS locationWhenInUse: $locationStatus');
+
+      final locationGranted = await Permission.locationWhenInUse.isGranted;
+
+      debugPrint(
+        'BLE permission iOS locationWhenInUse isGranted: $locationGranted',
+      );
+
+      return locationGranted;
+    }
+
+    final statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.locationWhenInUse,
+    ].request();
+
+    final scanStatus = statuses[Permission.bluetoothScan];
+    final connectStatus = statuses[Permission.bluetoothConnect];
+    final locationStatus = statuses[Permission.locationWhenInUse];
+
+    debugPrint('BLE permission Android bluetoothScan: $scanStatus');
+    debugPrint('BLE permission Android bluetoothConnect: $connectStatus');
+    debugPrint('BLE permission Android locationWhenInUse: $locationStatus');
 
     final scanGranted = await Permission.bluetoothScan.isGranted;
     final connectGranted = await Permission.bluetoothConnect.isGranted;
 
-    debugPrint('BLE permission bluetoothScan isGranted: $scanGranted');
-    debugPrint('BLE permission bluetoothConnect isGranted: $connectGranted');
+    debugPrint('BLE permission Android bluetoothScan isGranted: $scanGranted');
+    debugPrint(
+      'BLE permission Android bluetoothConnect isGranted: $connectGranted',
+    );
 
     return scanGranted && connectGranted;
   }
