@@ -39,9 +39,7 @@ class LogItem extends StatelessWidget {
                     ),
                   ),
                 TextSpan(
-                  text: time.contains(' ')
-                      ? time.split(' ')[1]
-                      : time,
+                  text: time.contains(' ') ? time.split(' ')[1] : time,
                   style: const TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
@@ -51,7 +49,6 @@ class LogItem extends StatelessWidget {
               ],
             ),
           ),
-
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -73,14 +70,14 @@ class LogItem extends StatelessWidget {
                       style: TextStyle(
                         color: latest ? Colors.orange : Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 20, 
+                        fontSize: 20,
                       ),
                     ),
                   ),
                 ),
               ),
-              if (diff != null) ...[ 
-                const SizedBox(width: 4),
+              if (diff != null) ...[
+                const SizedBox(height: 4),
                 Text(
                   diff!,
                   style: const TextStyle(

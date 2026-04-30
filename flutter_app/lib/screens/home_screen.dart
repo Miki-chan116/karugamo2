@@ -1,9 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../widgets/log_item.dart';
-import '../services/gas_api_service.dart';
+
 import '../services/ble_service.dart';
+import '../services/gas_api_service.dart';
+import '../widgets/log_item.dart';
 import 'edit_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,25 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool is12h = false;
 
-  String _formatDate(DateTime dt) {
-    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
-    final weekday = weekdays[dt.weekday - 1];
-    return '${dt.year}年${dt.month}月${dt.day}日($weekday)';
-  }
-
-  String _formatTime(DateTime now) {
-    if (is12h) {
-      int hour = now.hour % 12;
-      if (hour == 0) hour = 12;
-
-      final ampm = now.hour < 12 ? 'AM' : 'PM';
-
-      return "$ampm ${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-    }
-
-    return "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-  }
-
   late final BleService _bleService;
   late bool _isBleConnected;
   String _bleStatus = 'ATOM Lite未接続';
@@ -51,6 +34,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _userName = '';
   String _phoneNumber = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadUserInfo();
+
+    _bleService = widget.bleService;
+    _isBleConnected = widget.isBleConnected;
+    _bleStatus = _isBleConnected ? 'ATOM Lite接続中' : 'ATOM Lite未接続';
+
+    _atomLogSubscription = _bleService.atomLogStream.listen((atomLog) {
+      final now = DateTime.now();
+
+      int intervalMs = 0;
+
+      if (logs.isNotEmpty) {
+        final previousTime = logs.last["received_at"];
+
+        if (previousTime is DateTime) {
+          intervalMs = now.difference(previousTime).inMilliseconds;
+        } else if (previousTime is String) {
+          final parsed = DateTime.tryParse(previousTime);
+          if (parsed != null) {
+            intervalMs = now.difference(parsed).inMilliseconds;
+          }
+        }
+      }
+
+      setState(() {
+        logs.add({
+          "count": logs.length + 1,
+          "received_at": now,
+          "interval_ms": intervalMs,
+          "device_id": atomLog.deviceId,
+          "source": "atom",
+        });
+      });
+    });
+  }
 
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
@@ -63,57 +86,55 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
+  String _formatDate(DateTime dt) {
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    final weekday = weekdays[dt.weekday - 1];
+    return '${dt.year}年${dt.month}月${dt.day}日($weekday)';
+  }
 
-    _loadUserInfo();
-    _bleService = widget.bleService;
-    _isBleConnected = widget.isBleConnected;
-    _bleStatus = _isBleConnected ? 'ATOM Lite接続中' : 'ATOM Lite未接続';
+  String _formatTime(dynamic value) {
+    DateTime dt;
 
-    _atomLogSubscription = _bleService.atomLogStream.listen((atomLog) {
-      final now = DateTime.now();
+    if (value is DateTime) {
+      dt = value;
+    } else if (value is String) {
+      dt = DateTime.tryParse(value) ?? DateTime.now();
+    } else {
+      dt = DateTime.now();
+    }
 
-      final timeText =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    if (is12h) {
+      int hour = dt.hour % 12;
+      if (hour == 0) hour = 12;
 
-      int intervalMs = 0;
+      final ampm = dt.hour < 12 ? 'AM' : 'PM';
 
-      if (logs.isNotEmpty) {
-        final previousTime = logs.last["received_at"] as DateTime;
-        intervalMs = now.difference(previousTime).inMilliseconds;
-      }
+      return "$ampm ${hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    }
 
-      setState(() {
-        logs.add({
-          "time": timeText,
-          "count": logs.length + 1,
-          "received_at": now,
-          "interval_ms": intervalMs,
-          "device_id": atomLog.deviceId,
-          "source": "atom",
-        });
-      });
-    });
-  }  
+    return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+  }
 
   void _addLog() {
     final now = DateTime.now();
 
-    final timeText =
-        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-
     int intervalMs = 0;
 
     if (logs.isNotEmpty) {
-      final previousTime = logs.last["received_at"] as DateTime;
-      intervalMs = now.difference(previousTime).inMilliseconds;
+      final previousTime = logs.last["received_at"];
+
+      if (previousTime is DateTime) {
+        intervalMs = now.difference(previousTime).inMilliseconds;
+      } else if (previousTime is String) {
+        final parsed = DateTime.tryParse(previousTime);
+        if (parsed != null) {
+          intervalMs = now.difference(parsed).inMilliseconds;
+        }
+      }
     }
 
     setState(() {
       logs.add({
-        "time": timeText,
         "count": logs.length + 1,
         "received_at": now,
         "interval_ms": intervalMs,
@@ -126,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _sendLogs() async {
     if (logs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('送信するデータがありません')),
+        const SnackBar(content: Text('送るデータがありません')),
       );
       return;
     }
@@ -158,14 +179,14 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$sentCount件送信しました')),
+        SnackBar(content: Text('$sentCount件、送りました')),
       );
     } else {
       final failedCount = logs.length - successCount;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$successCount件送信、$failedCount件失敗しました'),
+          content: Text('$successCount件、送りました。$failedCount件、失敗しました。'),
         ),
       );
     }
@@ -184,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
-
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -221,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -242,9 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Text("➕ 打刻する"),
               ),
             ),
-
             const SizedBox(height: 12),
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -262,9 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
             Expanded(
               child: ListView(
                 children: logs.reversed.map((log) {
@@ -276,8 +291,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     final diffMin = (intervalMs / 1000 / 60).round();
                     diff = "$diffMin分";
                   }
+
                   return LogItem(
-                    time: _formatTime(log["received_at"] as DateTime),
+                    time: log["time"] ?? _formatTime(log["received_at"]),
                     count: log["count"],
                     latest: log == logs.last,
                     diff: diff,
@@ -293,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
           left: 8,
           right: 8,
           top: 8,
-          bottom: 46, // 約1cm（38px）＋元の8px
+          bottom: 46,
         ),
         color: Colors.white,
         child: Row(
@@ -324,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
                   },
                   child: const Text(
-                    "✏ 編集する",
+                    "✏️ 編集する",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
