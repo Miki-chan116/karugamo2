@@ -10,7 +10,8 @@ bool deviceConnected = false;
 NimBLECharacteristic* pCharacteristic;
 
 // BLEの名前
-const char* BLE_DEVICE_NAME = "KarugamoCounter";
+const char* BLE_DEVICE_NAME_PREFIX = "KarugamoCounter";
+String bleDeviceName = "KarugamoCounter-unset";
 
 // UUID
 #define SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -46,6 +47,21 @@ void printHelp() {
   Serial.println("  GET_ID");
   Serial.println("  SET_ID atom-001");
   Serial.println("  RESET_ID");
+}
+
+String buildBleDeviceName(String id) {
+  id.trim();
+
+  if (id.startsWith("atom-")) {
+    String number = id.substring(5);
+    number.trim();
+
+    if (number.length() > 0) {
+      return String(BLE_DEVICE_NAME_PREFIX) + "-" + number;
+    }
+  }
+
+  return String(BLE_DEVICE_NAME_PREFIX) + "-unset";
 }
 
 void handleSerialCommand(String command) {
@@ -124,16 +140,21 @@ void setup() {
   // device_id読み込み
   prefs.begin("karugamo", false);
   deviceId = prefs.getString("device_id", "atom-unset");
+  bleDeviceName = buildBleDeviceName(deviceId);
 
   Serial.print("Current device_id: ");
   Serial.println(deviceId);
+
+  Serial.print("BLE device name: ");
+  Serial.println(bleDeviceName);
+
   printHelp();
 
   // 待機中は青
   M5.dis.drawpix(0, 0x0000ff);
 
   // BLE初期化
-  NimBLEDevice::init(BLE_DEVICE_NAME);
+  NimBLEDevice::init(bleDeviceName.c_str());
 
   NimBLEServer* pServer = NimBLEDevice::createServer();
   pServer->setCallbacks(new ServerCallbacks());
@@ -155,7 +176,7 @@ void setup() {
   advData.addServiceUUID(SERVICE_UUID);
 
   NimBLEAdvertisementData scanResponseData;
-  scanResponseData.setName(BLE_DEVICE_NAME);
+  scanResponseData.setName(bleDeviceName.c_str());
 
   pAdvertising->setAdvertisementData(advData);
   pAdvertising->setScanResponseData(scanResponseData);
@@ -164,7 +185,7 @@ void setup() {
   Serial.println("BLE advertising config: flags + service uuid + scan response name");
   Serial.println("BLE advertising started");
   Serial.print("Device name: ");
-  Serial.println(BLE_DEVICE_NAME);
+  Serial.println(bleDeviceName);
 }
 
 void loop() {

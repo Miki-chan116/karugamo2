@@ -14,6 +14,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _atomNumberController = TextEditingController();
 
   final BleService _bleService = BleService();
 
@@ -32,36 +33,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final savedName = prefs.getString('user_name') ?? '';
     final savedPhone = prefs.getString('phone_number') ?? '';
+    final savedAtomNumber = prefs.getString('atom_number') ?? '';
 
     if (!mounted) return;
 
     setState(() {
       _nameController.text = savedName;
       _phoneController.text = savedPhone;
+      _atomNumberController.text = savedAtomNumber;
     });
   }
 
   Future<void> _saveUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString('user_name', _nameController.text);
-    await prefs.setString('phone_number', _phoneController.text);
+    await prefs.setString('user_name', _nameController.text.trim());
+    await prefs.setString('phone_number', _phoneController.text.trim());
+    await prefs.setString('atom_number', _atomNumberController.text.trim());
+  }
+
+  bool _validateInput() {
+    final atomNumber = _atomNumberController.text.trim();
+
+    if (atomNumber.isEmpty) {
+      setState(() {
+        _status = 'AtomLite番号を入力してください';
+      });
+      return false;
+    }
+
+    if (!RegExp(r'^[0-9]+$').hasMatch(atomNumber)) {
+      setState(() {
+        _status = 'AtomLite番号は数字だけで入力してください';
+      });
+      return false;
+    }
+
+    return true;
   }
 
   Future<void> _startWithAtomLite() async {
     if (_isConnecting) return;
 
+    if (!_validateInput()) return;
+
     await _saveUserInfo();
+
+    final atomNumber = _atomNumberController.text.trim();
 
     setState(() {
       _isConnecting = true;
-      _status = 'ATOM Liteへ接続中...';
+      _status = 'ATOM Lite $atomNumber へ接続中...';
     });
 
     bool connected = false;
 
     try {
       connected = await _bleService.connect(
+        atomNumber: atomNumber,
         onStatusChanged: (message) {
           if (!mounted) return;
           setState(() {
@@ -148,6 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _atomNumberController.dispose();
 
     if (!_movedToHome) {
       _bleService.dispose();
@@ -156,68 +186,86 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  Widget _label(String text) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 18),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String hintText) {
+    return InputDecoration(
+      hintText: hintText,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
       appBar: AppBar(
-        title: const Text('🦆 カウンター2 登録'),
+        title: const Text('🦆 カウンター2 '),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             const SizedBox(height: 20),
             const Text(
-              '※ 入力は、はじめて利用する時だけです。',
+              '※ 名前・電話番号・AtomLiteの番号を入力します。',
               style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 30),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '名前',
-                style: TextStyle(color: Colors.white, fontSize: 18),
-              ),
-            ),
+
+            _label('名前'),
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
-              decoration: InputDecoration(
-                hintText: '例: 🦆田　いぐお',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              decoration: _inputDecoration('例: 🦆田　いぐお'),
             ),
+
             const SizedBox(height: 20),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '電話番号',
-                style: TextStyle(color: Colors.white, fontSize: 18),
-              ),
-            ),
+
+            _label('電話番号'),
             const SizedBox(height: 8),
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: '09012345678',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
+              decoration: _inputDecoration('09012345678'),
+            ),
+
+            const SizedBox(height: 20),
+
+            _label('AtomLite番号'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _atomNumberController,
+              keyboardType: TextInputType.number,
+              decoration: _inputDecoration('例: 111'),
+            ),
+
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '※  AtomLiteの番号を入力します。',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
             ),
+
             const SizedBox(height: 24),
+
             Text(
               _status,
               style: const TextStyle(
