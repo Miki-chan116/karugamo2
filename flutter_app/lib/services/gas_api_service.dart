@@ -3,10 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-class GasApiService {
-  static const String gasUrl =
-      'https://script.google.com/macros/s/AKfycbwBvYoSEjYuzMYPhqUYFtHNMi4XloOw3d3uKrzYKJBoqSAi36q_buROS_7nyJQu2vLZMg/exec';
+import 'app_config_service.dart'; // ←追加
 
+class GasApiService {
   static Future<bool> sendLog({
     required String deviceId,
     required int pressCount,
@@ -17,6 +16,14 @@ class GasApiService {
     dynamic receivedAt,
   }) async {
     try {
+      // ★ ここが重要：保存されたGAS URLを取得
+      final gasUrl = await AppConfigService.getGasWebAppUrl();
+
+      if (gasUrl == null || gasUrl.isEmpty) {
+        debugPrint('GAS URL未設定');
+        return false;
+      }
+
       String? receivedAtText;
 
       if (receivedAt is DateTime) {
@@ -43,7 +50,7 @@ class GasApiService {
       debugPrint('GAS request body: $body');
 
       http.Response response = await http.post(
-        Uri.parse(gasUrl),
+        Uri.parse(gasUrl), // ←ここも変更済み
         headers: {
           'Content-Type': 'application/json',
         },
@@ -53,7 +60,7 @@ class GasApiService {
       debugPrint('GAS first statusCode: ${response.statusCode}');
       debugPrint('GAS first response: ${response.body}');
 
-      // GAS Webアプリは 302 リダイレクトを返すことがあるため対応
+      // リダイレクト対応
       if (response.statusCode == 301 ||
           response.statusCode == 302 ||
           response.statusCode == 303 ||
@@ -61,7 +68,6 @@ class GasApiService {
           response.statusCode == 308) {
         String? redirectUrl = response.headers['location'];
 
-        // Locationヘッダーが取れない場合、HTML内の href から取得
         if (redirectUrl == null) {
           final match = RegExp(r'HREF="([^"]+)"').firstMatch(response.body);
           redirectUrl = match?.group(1)?.replaceAll('&amp;', '&');

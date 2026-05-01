@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../services/ble_service.dart';
 import 'home_screen.dart';
+import 'app_config_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -173,6 +173,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Future<void> _openAppConfigScreen() async {
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('管理者用設定'),
+          content: const Text(
+            'この設定は配布時の初回設定用です。\n\n'
+            '通常利用では変更しないでください。\n'
+            '送信先スプレッドシートの設定を開きますか？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('開く'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (open == true) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const AppConfigScreen(),
+        ),
+      );
+    }
+  }  
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -212,11 +253,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0b5a35),
-      appBar: AppBar(
-        title: const Text('🦆 カウンター2 '),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
+            appBar: AppBar(
+              title: const Text('🦆 カウンター2 '),
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              actions: [
+                IconButton(
+                  tooltip: '管理者用設定',
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  onPressed: _isConnecting ? null : _openAppConfigScreen,
+                ),
+              ],
+            ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

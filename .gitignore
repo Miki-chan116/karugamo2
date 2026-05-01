@@ -60,3 +60,5 @@ dist/
 
 # Local deploy GUI config
 tools/deploy_atom_gui_config.json
+
+tools/setup_sheet_gui_config.json

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/app_config_service.dart';
 import '../services/ble_service.dart';
 import '../services/gas_api_service.dart';
 import '../widgets/log_item.dart';
@@ -123,7 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
         map["device_id"] = map["device_id"]?.toString() ?? '';
         map["source"] = map["source"]?.toString() ?? 'manual';
 
-        // 12H/24H切替を効かせるため、固定表示用のtimeは使わない
         map.remove("time");
 
         return map;
@@ -288,15 +288,38 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_savePendingLogs());
   }
 
+  Future<bool> _ensureGasUrlConfigured() async {
+    final gasUrl = await AppConfigService.getGasWebAppUrl();
+
+    if (gasUrl != null && gasUrl.isNotEmpty) {
+      return true;
+    }
+
+    return false;
+  }
+
   Future<void> _sendLogs() async {
+    final messenger = ScaffoldMessenger.of(context);
+
     if (logs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('送るデータがありません')),
       );
       return;
     }
 
-    final messenger = ScaffoldMessenger.of(context);
+    final isConfigured = await _ensureGasUrlConfigured();
+
+    if (!mounted) return;
+
+    if (!isConfigured) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('送信先未設定です。管理者用設定からQRコードを読み取ってください。'),
+        ),
+      );
+      return;
+    }
 
     int successCount = 0;
 
@@ -327,6 +350,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await _clearPendingLogs();
 
+      if (!mounted) return;
+
       messenger.showSnackBar(
         SnackBar(content: Text('$sentCount件、送りました')),
       );
@@ -334,6 +359,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final failedCount = logs.length - successCount;
 
       await _savePendingLogs();
+
+      if (!mounted) return;
 
       messenger.showSnackBar(
         SnackBar(
@@ -486,6 +513,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     );
+
+                    if (!mounted) return;
 
                     if (result != null) {
                       setState(() {

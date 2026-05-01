@@ -38,6 +38,7 @@ dependencies:
   flutter_blue_plus: ^1.36.8
   permission_handler: ^11.3.1
   shared_preferences: ^2.5.5
+  mobile_scanner: ^6.0.2
 
 dev_dependencies:
   flutter_test:

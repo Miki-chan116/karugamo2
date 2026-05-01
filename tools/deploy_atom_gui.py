@@ -1,50 +1,96 @@
-import sys
+import io
 import json
 import platform
-import subprocess
+import sys
 import threading
-import shutil
+import time
 import tkinter as tk
-from tkinter import messagebox
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from tkinter import messagebox
+
+import esptool
+import serial
+
+
+BAUDRATE = 115200
+FLASH_BAUDRATE = "1500000"
+DEVICE_ID_PREFIX = "atom-"
+
+BG_COLOR = "#0b5a35"
+PRIMARY_GREEN = "#00aa55"
+ORANGE = "#F4A261"
+WHITE = "#ffffff"
+BLACK = "#000000"
 
 
 def find_base_dir() -> Path:
     candidates = []
 
-    # PyInstallerでアプリ化された場合
     if getattr(sys, "frozen", False):
         exe_path = Path(sys.executable).resolve()
-
-        # .app の中から起動された場合、親をたどって候補に入れる
         for parent in exe_path.parents:
             candidates.append(parent)
 
-    # 通常のPython実行の場合
     script_dir = Path(__file__).resolve().parent
     candidates.append(script_dir)
 
     for parent in script_dir.parents:
         candidates.append(parent)
 
-    # 候補の中から karugamo2 のルートを探す
     for candidate in candidates:
-        if (
-            (candidate / "tools" / "deploy_atom.py").exists()
-            and (candidate / "hardware" / "kamokamo").exists()
-        ):
+        if (candidate / "tools").exists() or (candidate / "release_assets").exists():
             return candidate
 
-    raise RuntimeError(
-        "karugamo2 フォルダが見つかりません。\n"
-        "KarugamoAtomDeploy.app は karugamo2 フォルダ内の dist フォルダに置いて実行してください。"
-    )
+    return Path.cwd()
+
+
+def find_release_assets_dir() -> Path:
+    # PyInstaller --add-data で同梱された場合
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        bundled_dir = Path(sys._MEIPASS) / "release_assets"
+        if bundled_dir.exists():
+            return bundled_dir
+
+    # 通常実行またはフォルダ配布の場合
+    base_dir = find_base_dir()
+    external_dir = base_dir / "release_assets"
+    if external_dir.exists():
+        return external_dir
+
+    # dist/KarugamoAtomDeploy.exe の隣に release_assets を置いた場合
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        exe_side_dir = exe_dir / "release_assets"
+        if exe_side_dir.exists():
+            return exe_side_dir
+
+    return external_dir
 
 
 BASE_DIR = find_base_dir()
-DEPLOY_SCRIPT = BASE_DIR / "tools" / "deploy_atom.py"
+RELEASE_ASSETS_DIR = find_release_assets_dir()
 CONFIG_FILE = BASE_DIR / "tools" / "deploy_atom_gui_config.json"
-DEVICE_ID_PREFIX = "atom-"
+
+BOOTLOADER_BIN = RELEASE_ASSETS_DIR / "bootloader.bin"
+PARTITIONS_BIN = RELEASE_ASSETS_DIR / "partitions.bin"
+BOOT_APP0_BIN = RELEASE_ASSETS_DIR / "boot_app0.bin"
+FIRMWARE_BIN = RELEASE_ASSETS_DIR / "firmware.bin"
+
+
+def default_font_name() -> str:
+    system = platform.system()
+
+    if system == "Windows":
+        return "Yu Gothic UI"
+
+    if system == "Darwin":
+        return "Hiragino Sans"
+
+    return "TkDefaultFont"
+
+
+FONT_NAME = default_font_name()
 
 
 def default_port() -> str:
@@ -53,52 +99,164 @@ def default_port() -> str:
     if system == "Windows":
         return "COM3"
 
-    if system == "Darwin":  # macOS
+    if system == "Darwin":
         return "/dev/cu.usbserial"
 
     return "/dev/ttyUSB0"
 
 
-def find_python_command() -> str:
-    """
-    deploy_atom.py を実行するための Python コマンドを取得する。
+def validate_release_assets() -> None:
+    required_files = [
+        BOOTLOADER_BIN,
+        PARTITIONS_BIN,
+        BOOT_APP0_BIN,
+        FIRMWARE_BIN,
+    ]
 
-    通常のPython実行時:
-      今動いている Python を使う。
+    missing_files = [path for path in required_files if not path.exists()]
 
-    PyInstallerでexe/.app化されている時:
-      sys.executable は GUI本体を指すため、そのまま使うと
-      KarugamoAtomDeploy.exe / .app 自身を再起動してしまう。
-      そのため外部の Python を探して使う。
-    """
-    if not getattr(sys, "frozen", False):
-        return sys.executable
-
-    if sys.platform == "win32":
-        candidates = ["py", "python", "python3"]
-    else:
-        candidates = ["python3", "python"]
-
-    for name in candidates:
-        path = shutil.which(name)
-        if path:
-            return path
-
-    raise RuntimeError(
-        "Python が見つかりません。\n"
-        "AtomLite配布処理を実行するには Python と esptool / pyserial が必要です。\n\n"
-        "Windowsの場合:\n"
-        "  py -m pip install esptool pyserial\n\n"
-        "macOSの場合:\n"
-        "  python3 -m pip install esptool pyserial"
-    )
+    if missing_files:
+        message = "配布用binファイルが見つかりません:\n"
+        message += "\n".join(str(path) for path in missing_files)
+        message += "\n\nrelease_assets フォルダに以下4ファイルを配置してください:\n"
+        message += "bootloader.bin\n"
+        message += "partitions.bin\n"
+        message += "boot_app0.bin\n"
+        message += "firmware.bin"
+        raise RuntimeError(message)
 
 
-BG_COLOR = "#0b5a35"
-PRIMARY_GREEN = "#00aa55"
-ORANGE = "#F4A261"
-WHITE = "#ffffff"
-BLACK = "#000000"
+def validate_device_id(device_id: str) -> None:
+    if not device_id.startswith(DEVICE_ID_PREFIX):
+        raise ValueError("device_id must start with 'atom-'")
+
+    suffix = device_id.replace(DEVICE_ID_PREFIX, "", 1)
+
+    if not suffix:
+        raise ValueError("device_id suffix is empty")
+
+    if not suffix.isdigit():
+        raise ValueError("device_id suffix must be numeric, e.g. atom-001")
+
+
+def read_until_idle(ser: serial.Serial, seconds: float = 3.0, log=None) -> str:
+    end_time = time.time() + seconds
+    chunks = []
+
+    while time.time() < end_time:
+        if ser.in_waiting:
+            data = ser.read(ser.in_waiting).decode(errors="replace")
+            chunks.append(data)
+
+            if log:
+                log(data)
+
+            end_time = time.time() + 0.5
+        else:
+            time.sleep(0.1)
+
+    return "".join(chunks)
+
+
+def send_command(
+    ser: serial.Serial,
+    command: str,
+    wait_seconds: float = 1.5,
+    log=None,
+) -> str:
+    if log:
+        log(f"\n>>> {command}\n")
+
+    ser.write((command + "\n").encode("utf-8"))
+    ser.flush()
+
+    return read_until_idle(ser, wait_seconds, log=log)
+
+
+def run_upload(port: str, log=None) -> None:
+    if log:
+        log("=== Upload start ===\n")
+        log("Upload method: esptool bundled\n")
+        log(f"Release assets: {RELEASE_ASSETS_DIR}\n")
+
+    validate_release_assets()
+
+    args = [
+        "--chip",
+        "esp32",
+        "--port",
+        port,
+        "--baud",
+        FLASH_BAUDRATE,
+        "write-flash",
+        "0x1000",
+        str(BOOTLOADER_BIN),
+        "0x8000",
+        str(PARTITIONS_BIN),
+        "0xe000",
+        str(BOOT_APP0_BIN),
+        "0x10000",
+        str(FIRMWARE_BIN),
+    ]
+
+    output = io.StringIO()
+
+    try:
+        with redirect_stdout(output), redirect_stderr(output):
+            esptool.main(args)
+    except SystemExit as e:
+        text = output.getvalue()
+        if log and text:
+            log(text)
+
+        if e.code not in (0, None):
+            raise RuntimeError(f"Upload failed. esptool exit code: {e.code}") from e
+    except Exception:
+        text = output.getvalue()
+        if log and text:
+            log(text)
+        raise
+
+    text = output.getvalue()
+    if log and text:
+        log(text)
+
+    if log:
+        log("=== Upload success ===\n")
+
+    time.sleep(2.0)
+
+
+def configure_device_id(port: str, device_id: str, log=None) -> None:
+    if log:
+        log("=== Serial connect ===\n")
+
+    with serial.Serial(port, BAUDRATE, timeout=0.2) as ser:
+        time.sleep(2.0)
+
+        if log:
+            log("=== Boot log ===\n")
+
+        read_until_idle(ser, 3.0, log=log)
+
+        response = send_command(ser, f"SET_ID {device_id}", 2.0, log=log)
+
+        expected = f"OK device_id={device_id}"
+        if expected not in response:
+            raise RuntimeError(
+                f"SET_ID failed. Expected '{expected}' in response."
+            )
+
+        response = send_command(ser, "GET_ID", 2.0, log=log)
+
+        expected = f"Current device_id: {device_id}"
+        if expected not in response:
+            raise RuntimeError(
+                f"GET_ID failed. Expected '{expected}' in response."
+            )
+
+    if log:
+        log("\n=== Device ID configured successfully ===\n")
 
 
 class AtomDeployApp:
@@ -142,7 +300,6 @@ class AtomDeployApp:
                     indent=2,
                 )
         except Exception:
-            # 設定保存失敗は配布処理自体を止めない
             pass
 
     def _build_ui(self):
@@ -154,7 +311,7 @@ class AtomDeployApp:
             text="🦆 AtomLite 配布ツール",
             bg=WHITE,
             fg=BLACK,
-            font=("Yu Gothic UI", 20, "bold"),
+            font=(FONT_NAME, 20, "bold"),
             anchor="w",
             padx=20,
         )
@@ -168,7 +325,7 @@ class AtomDeployApp:
             text="管理者用：AtomLiteへ共通PGを配布し、識別番号を設定します。",
             bg=BG_COLOR,
             fg="#d8f5e5",
-            font=("Yu Gothic UI", 11),
+            font=(FONT_NAME, 11),
             anchor="w",
         )
         note.pack(fill="x", pady=(0, 20))
@@ -177,7 +334,7 @@ class AtomDeployApp:
         self.port_entry = tk.Entry(
             body,
             textvariable=self.port_var,
-            font=("Yu Gothic UI", 18),
+            font=(FONT_NAME, 18),
             bg=WHITE,
             fg=BLACK,
             relief="flat",
@@ -192,7 +349,7 @@ class AtomDeployApp:
         prefix_label = tk.Label(
             device_frame,
             text=DEVICE_ID_PREFIX,
-            font=("Yu Gothic UI", 18),
+            font=(FONT_NAME, 18),
             bg=WHITE,
             fg=BLACK,
             padx=8,
@@ -202,7 +359,7 @@ class AtomDeployApp:
         self.device_entry = tk.Entry(
             device_frame,
             textvariable=self.device_number_var,
-            font=("Yu Gothic UI", 18),
+            font=(FONT_NAME, 18),
             bg=WHITE,
             fg=BLACK,
             relief="flat",
@@ -220,7 +377,7 @@ class AtomDeployApp:
             fg=WHITE,
             activebackground="#008f49",
             activeforeground=WHITE,
-            font=("Yu Gothic UI", 16, "bold"),
+            font=(FONT_NAME, 16, "bold"),
             relief="flat",
             cursor="hand2",
         )
@@ -237,7 +394,7 @@ class AtomDeployApp:
             fg=BLACK,
             activebackground="#e88b3e",
             activeforeground=BLACK,
-            font=("Yu Gothic UI", 16, "bold"),
+            font=(FONT_NAME, 16, "bold"),
             relief="flat",
             cursor="hand2",
         )
@@ -248,7 +405,7 @@ class AtomDeployApp:
             text="待機中",
             bg=BG_COLOR,
             fg=WHITE,
-            font=("Yu Gothic UI", 12, "bold"),
+            font=(FONT_NAME, 12, "bold"),
             anchor="w",
         )
         self.status_label.pack(fill="x", pady=(0, 8))
@@ -277,7 +434,7 @@ class AtomDeployApp:
             text=text,
             bg=BG_COLOR,
             fg=WHITE,
-            font=("Yu Gothic UI", 13, "bold"),
+            font=(FONT_NAME, 13, "bold"),
             anchor="w",
         )
         label.pack(fill="x", pady=(0, 6))
@@ -322,6 +479,9 @@ class AtomDeployApp:
         self.log_text.see("end")
         self.root.update_idletasks()
 
+    def thread_safe_log(self, text: str):
+        self.root.after(0, lambda: self.append_log(text))
+
     def clear_log(self):
         self.log_text.delete("1.0", "end")
 
@@ -345,6 +505,7 @@ class AtomDeployApp:
         self.append_log("=== Karugamo AtomLite 配布ツール ===\n")
         self.append_log(f"COMポート: {port}\n")
         self.append_log(f"AtomLite番号: {device_id}\n")
+        self.append_log(f"Release assets: {RELEASE_ASSETS_DIR}\n")
         self.append_log("モード: 番号設定のみ\n" if skip_upload else "モード: PG配布＋番号設定\n")
         self.append_log("\n")
 
@@ -359,77 +520,27 @@ class AtomDeployApp:
         self.root.after(0, lambda: self.set_running(True))
 
         try:
-            python_cmd = find_python_command()
+            validate_device_id(device_id)
 
+            if not skip_upload:
+                run_upload(port, log=self.thread_safe_log)
+
+            configure_device_id(port, device_id, log=self.thread_safe_log)
+
+            self.root.after(0, lambda: self.append_log("\n✅ 完了しました。\n"))
             self.root.after(
                 0,
-                lambda: self.append_log(f"Python command: {python_cmd}\n"),
+                lambda: messagebox.showinfo(
+                    "完了",
+                    f"AtomLiteの配布/設定が完了しました。\n\n{device_id}",
+                ),
             )
-
-            command = [
-                python_cmd,
-                str(DEPLOY_SCRIPT),
-                "--port",
-                port,
-                "--device-id",
-                device_id,
-            ]
-
-            if skip_upload:
-                command.append("--skip-upload")
-
-            startupinfo = None
-            creationflags = 0
-
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-                creationflags = subprocess.CREATE_NO_WINDOW
-
-            process = subprocess.Popen(
-                command,
-                cwd=BASE_DIR,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-                startupinfo=startupinfo,
-                creationflags=creationflags,
-            )
-
-            assert process.stdout is not None
-
-            for line in process.stdout:
-                self.root.after(0, lambda line=line: self.append_log(line))
-
-            return_code = process.wait()
-
-            if return_code == 0:
-                self.root.after(0, lambda: self.append_log("\n✅ 完了しました。\n"))
-                self.root.after(
-                    0,
-                    lambda: messagebox.showinfo(
-                        "完了",
-                        f"AtomLiteの配布/設定が完了しました。\n\n{device_id}",
-                    ),
-                )
-            else:
-                self.root.after(0, lambda: self.append_log("\n❌ 失敗しました。\n"))
-                self.root.after(
-                    0,
-                    lambda: messagebox.showerror(
-                        "エラー",
-                        "配布/設定に失敗しました。ログを確認してください。",
-                    ),
-                )
 
         except Exception as e:
             error_message = str(e)
 
             self.root.after(0, lambda: self.append_log(f"\nERROR: {error_message}\n"))
+            self.root.after(0, lambda: self.append_log("\n❌ 失敗しました。\n"))
             self.root.after(0, lambda: messagebox.showerror("エラー", error_message))
 
         finally:
